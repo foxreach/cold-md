@@ -1,47 +1,25 @@
 {
-  "$schema": "https://claude.ai/schemas/plugin.json",
   "name": "cold-md",
-  "version": "0.1.0",
-  "description": "The full cold.md suite for Claude Code. Six skills that run your cold outreach end-to-end: ICP building, lead sourcing, drafting, sending, reply triage, and reporting. Backed by the FoxReach API for sending infrastructure. Reads the open cold.md spec.",
-  "homepage": "https://cold.md",
-  "repository": "https://github.com/concaption/cold-md",
+  "version": "0.3.0",
+  "description": "The cold.md suite for Claude Code: eleven skills and one /cold command that run cold outreach end to end. ICP, offer and market research, lead sourcing with verification, drafting from your cold.md, sending with pre-flight checks, A/B experiments that rewrite cold.md from results, reply triage and reporting. Sends through FoxReach.",
   "author": {
-    "name": "cold.md",
-    "email": "team@cold.md",
-    "url": "https://cold.md"
+    "name": "FoxReach",
+    "email": "dev@foxreach.io",
+    "url": "https://www.foxreach.io"
   },
+  "homepage": "https://cold.md",
+  "repository": "https://github.com/foxreach/cold-md",
   "license": "MIT",
   "keywords": [
     "cold-outreach",
     "cold-email",
     "cold.md",
-    "sales",
-    "sdr",
     "outbound",
-    "foxreach",
-    "icp",
+    "sdr",
+    "autoresearch",
+    "ab-testing",
     "reply-triage",
-    "deliverability"
-  ],
-  "skills": [
-    "skills/cold-icp",
-    "skills/cold-offer",
-    "skills/cold-leads",
-    "skills/cold-draft",
-    "skills/cold-send",
-    "skills/cold-experiment",
-    "skills/cold-learn",
-    "skills/cold-triage",
-    "skills/cold-status",
-    "skills/cold-report"
-  ],
-  "commands": [
-    "commands/cold.md"
-  ],
-  "environment": {
-    "FOXREACH_API_KEY": {
-      "description": "API key from foxreach.io/settings/api. Required for cold-leads, cold-send, cold-triage, cold-report. Get one free at https://foxreach.io/signup.",
-      "required": false
-    }
-  }
+    "deliverability",
+    "foxreach"
+  ]
 }

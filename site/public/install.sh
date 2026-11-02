@@ -1,53 +1,55 @@
 #!/usr/bin/env bash
 # cold.md installer
 # Usage:
-#   curl -fsSL https://cold.md/install | bash                       # full install (FoxReach plugin included)
-#   curl -fsSL https://cold.md/install | bash -s -- --scaffold      # also drop ./cold.md in the current repo
-#   curl -fsSL https://cold.md/install | bash -s -- --skills-only   # skip the FoxReach plugin
+#   curl -fsSL https://cold.md/install | bash                       # install the Claude Code plugin
+#   curl -fsSL https://cold.md/install | bash -s -- --scaffold      # also start ./cold.md + ./icp.md here
+#   curl -fsSL https://cold.md/install | bash -s -- --skills-only   # copy skills + /cold into ~/.claude instead
 #
 # What it does:
-#   1. Installs the full skill suite + FoxReach plugin to ~/.claude/ (default).
-#   2. Optionally scaffolds ./cold.md from the minimal template.
-#   3. --skills-only installs just the open skills, no FoxReach plugin.
+#   1. With the `claude` CLI on PATH: adds the foxreach/cold-md marketplace and installs
+#      the cold-md plugin (11 skills + the /cold command). Re-running updates it.
+#   2. Without it, or with --skills-only: copies the skills to ~/.claude/skills/ and the
+#      /cold command to ~/.claude/commands/.
+#   3. --scaffold drops starter cold.md and icp.md files in the current directory.
 #
-# Safe to re-run (idempotent).
-# Source: https://github.com/concaption/cold-md
+# Safe to re-run. Source: https://github.com/foxreach/cold-md
 
 set -euo pipefail
 
-REPO_TARBALL="https://github.com/concaption/cold-md/archive/refs/heads/main.tar.gz"
+REPO="foxreach/cold-md"
+REPO_TARBALL="https://github.com/${REPO}/archive/refs/heads/main.tar.gz"
 SKILL_DIR="${HOME}/.claude/skills"
-PLUGIN_DIR="${HOME}/.claude/plugins"
+COMMAND_DIR="${HOME}/.claude/commands"
+LEGACY_PLUGIN_DIR="${HOME}/.claude/plugins/cold-md"
+SKILL_NAMES="cold-icp cold-offer cold-research cold-leads cold-draft cold-send cold-experiment cold-learn cold-triage cold-status cold-report"
 TMPDIR="$(mktemp -d -t coldmd-setup.XXXXXX)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
-WITH_FOXREACH=true   # default: install FoxReach plugin
+MODE=plugin
 SCAFFOLD=false
 QUIET=false
+EXTRACTED=""
 
 for arg in "$@"; do
   case "$arg" in
-    --with-foxreach) WITH_FOXREACH=true ;;                # explicit, same as default
-    --skills-only|--without-foxreach|--no-foxreach) WITH_FOXREACH=false ;;
+    --skills-only|--without-foxreach|--no-foxreach) MODE=skills ;;
+    --with-foxreach|--plugin) MODE=plugin ;;
     --scaffold) SCAFFOLD=true ;;
     --quiet) QUIET=true ;;
     --help|-h)
-      sed -n '2,12p' "$0"
+      printf '%s\n' \
+        'curl -fsSL https://cold.md/install | bash                      install the Claude Code plugin' \
+        'curl -fsSL https://cold.md/install | bash -s -- --scaffold     also start ./cold.md + ./icp.md' \
+        'curl -fsSL https://cold.md/install | bash -s -- --skills-only  copy skills + /cold into ~/.claude'
       exit 0
       ;;
   esac
 done
 
-log() { [ "$QUIET" = true ] || printf "  %s\n" "$*"; }
-ok()  { [ "$QUIET" = true ] || printf "  ${GREEN}\xE2\x9C\x93${RESET} %s\n" "$*"; }
-warn(){ printf "  ${YELLOW}\xE2\x9A\xA0${RESET} %s\n" "$*" >&2; }
-die() { printf "  ${RED}\xE2\x9C\x97${RESET} %s\n" "$*" >&2; exit 1; }
-
 # Color setup. Honors NO_COLOR and non-tty output.
 if [ -n "${NO_COLOR:-}" ] || [ ! -t 1 ]; then
   ORANGE=""; WHITE=""; DIM=""; GREEN=""; YELLOW=""; RED=""; BOLD=""; RESET=""
 else
-  # Rust-orange #C2410C via 24-bit true-color. Falls back to 256-color 166 if needed.
   ORANGE=$'\033[38;2;194;65;12m'
   WHITE=$'\033[38;2;250;247;242m'
   DIM=$'\033[38;5;244m'
@@ -58,6 +60,11 @@ else
   RESET=$'\033[0m'
 fi
 
+log() { [ "$QUIET" = true ] || printf "  %s\n" "$*"; }
+ok()  { [ "$QUIET" = true ] || printf "  ${GREEN}\xE2\x9C\x93${RESET} %s\n" "$*"; }
+warn(){ printf "  ${YELLOW}!${RESET} %s\n" "$*" >&2; }
+die() { printf "  ${RED}x${RESET} %s\n" "$*" >&2; exit 1; }
+
 banner() {
   [ "$QUIET" = true ] && return
   printf '\n'
@@ -67,82 +74,99 @@ banner() {
   printf '%s██      ██    ██ ██      ██   ██  ██    ██  ██  ██ ██   ██%s\n' "$ORANGE" "$RESET"
   printf '%s ██████  ██████  ███████ ██████         ██      ██ ██████%s\n' "$ORANGE" "$RESET"
   printf '\n'
-  printf '%s━━━━━━━━━━━━━━━━━━━━━━━━━%s\n' "$ORANGE" "$RESET"
-  printf '%sOne markdown file that runs your cold outreach.%s\n' "$WHITE" "$RESET"
-  printf '%shttps://cold.md%s\n' "$DIM" "$RESET"
-  printf '\n'
-}
-
-commands_panel() {
-  [ "$QUIET" = true ] && return
-  printf '\n'
-  printf '  %sCOMMANDS%s\n' "$BOLD" "$RESET"
-  printf '  %s/cold icp%s       %sBuild your ICP from a URL or Q&A%s\n'       "$ORANGE" "$RESET" "$DIM" "$RESET"
-  printf '  %s/cold leads%s     %sSource leads matching icp.md%s\n'           "$ORANGE" "$RESET" "$DIM" "$RESET"
-  printf '  %s/cold draft%s     %sDraft opener, bump, breakup from cold.md%s\n' "$ORANGE" "$RESET" "$DIM" "$RESET"
-  printf '  %s/cold send%s      %sQueue a campaign via FoxReach%s\n'          "$ORANGE" "$RESET" "$DIM" "$RESET"
-  printf '  %s/cold triage%s    %sSort replies by intent, draft responses%s\n' "$ORANGE" "$RESET" "$DIM" "$RESET"
-  printf '  %s/cold report%s    %sDigest: deliverability + bookings%s\n'      "$ORANGE" "$RESET" "$DIM" "$RESET"
-  printf '  %s/cold audit%s     %sRun a deliverability audit on a domain%s\n' "$ORANGE" "$RESET" "$DIM" "$RESET"
-  printf '\n'
-}
-
-check_deps() {
-  for dep in curl tar; do
-    command -v "$dep" >/dev/null 2>&1 || die "missing required tool: $dep"
-  done
+  printf '%sCold outreach that improves itself.%s\n' "$WHITE" "$RESET"
+  printf '%shttps://cold.md%s\n\n' "$DIM" "$RESET"
 }
 
 fetch_repo() {
-  log "Downloading cold-md..."
+  [ -n "$EXTRACTED" ] && return 0
+  log "Downloading ${REPO}..."
   curl -fsSL "$REPO_TARBALL" | tar -xz -C "$TMPDIR"
-  # -mindepth 1 avoids matching TMPDIR itself even if its name happens to match.
   EXTRACTED="$(find "$TMPDIR" -mindepth 1 -maxdepth 1 -type d -name 'cold-md-*' | head -1)"
-  [ -n "$EXTRACTED" ] || die "failed to extract repo"
-  [ -d "$EXTRACTED/skills" ] || die "tarball missing skills/ - expected $EXTRACTED/skills"
-  [ -d "$EXTRACTED/plugin/cold-md" ] || die "tarball missing plugin/cold-md"
+  [ -n "$EXTRACTED" ] || die "failed to extract the repo"
+  [ -d "$EXTRACTED/plugin/cold-md/skills" ] || die "tarball is missing plugin/cold-md/skills"
 }
 
-install_skills() {
-  # Install each skill from skills/ into ~/.claude/skills/
-  # Discovered dynamically so new skills don't need installer changes.
-  mkdir -p "$SKILL_DIR"
-  local installed=0
-  for src in "$EXTRACTED/skills/"*; do
-    [ -d "$src" ] || continue
-    local name="$(basename "$src")"
-    local dest="$SKILL_DIR/$name"
-    [ -d "$dest" ] && rm -rf "$dest"
-    cp -R "$src" "$dest"
-    installed=$((installed + 1))
+# Older installers copied skills to ~/.claude/skills and the plugin to
+# ~/.claude/plugins/cold-md (which Claude Code never loaded). With the plugin
+# installed, those skill copies would load twice, so move them aside.
+retire_legacy_copies() {
+  local backup="${HOME}/.claude/cold-md-backup-$(date +%Y%m%d%H%M%S)"
+  local moved=0
+  for name in $SKILL_NAMES; do
+    if [ -d "$SKILL_DIR/$name" ]; then
+      mkdir -p "$backup/skills"
+      mv "$SKILL_DIR/$name" "$backup/skills/$name"
+      moved=$((moved + 1))
+    fi
   done
-  ok "$installed skills installed to $SKILL_DIR/"
+  if [ -f "$COMMAND_DIR/cold.md" ]; then
+    mkdir -p "$backup/commands"
+    mv "$COMMAND_DIR/cold.md" "$backup/commands/cold.md"
+    moved=$((moved + 1))
+  fi
+  if [ -d "$LEGACY_PLUGIN_DIR" ]; then
+    mkdir -p "$backup"
+    mv "$LEGACY_PLUGIN_DIR" "$backup/plugin-cold-md"
+    moved=$((moved + 1))
+  fi
+  if [ "$moved" -gt 0 ]; then
+    ok "Moved $moved files from an older cold.md install to $backup"
+  fi
 }
 
 install_plugin() {
-  mkdir -p "$PLUGIN_DIR"
-  local src="$EXTRACTED/plugin/cold-md"
-  local dest="$PLUGIN_DIR/cold-md"
-  [ -d "$dest" ] && rm -rf "$dest"
-  cp -R "$src" "$dest"
-  ok "cold-md plugin installed to $dest"
+  log "Installing the cold-md plugin with the claude CLI..."
+  if claude plugin marketplace list 2>/dev/null | grep -q "cold-md"; then
+    claude plugin marketplace update cold-md >/dev/null 2>&1 || warn "could not refresh the cold-md marketplace"
+  else
+    claude plugin marketplace add "$REPO" >/dev/null || return 1
+  fi
+  if claude plugin list 2>/dev/null | grep -q "cold-md@cold-md"; then
+    claude plugin update cold-md@cold-md >/dev/null || return 1
+    ok "cold-md plugin updated. Restart Claude Code to load the new version."
+  else
+    claude plugin install cold-md@cold-md >/dev/null || return 1
+    ok "cold-md plugin installed: 11 skills and the /cold command"
+  fi
+}
+
+install_skills() {
+  fetch_repo
+  mkdir -p "$SKILL_DIR" "$COMMAND_DIR"
+  local installed=0
+  for src in "$EXTRACTED/plugin/cold-md/skills/"*; do
+    [ -d "$src" ] || continue
+    local dest="$SKILL_DIR/$(basename "$src")"
+    rm -rf "$dest"
+    cp -R "$src" "$dest"
+    installed=$((installed + 1))
+  done
+  cp "$EXTRACTED/plugin/cold-md/commands/cold.md" "$COMMAND_DIR/cold.md"
+  ok "$installed skills copied to $SKILL_DIR/ and /cold to $COMMAND_DIR/"
+}
+
+check_foxreach() {
+  if ! command -v foxreach >/dev/null 2>&1; then
+    warn "foxreach CLI not found. The sending skills use it:  pip install foxreach-cli"
+  fi
   if [ -z "${FOXREACH_API_KEY:-}" ]; then
-    warn "FOXREACH_API_KEY not set. Get a free key at https://foxreach.io/signup, then:"
-    printf "    export FOXREACH_API_KEY=fr_...\n" >&2
+    warn "FOXREACH_API_KEY not set. Create a key in FoxReach under Settings > API Keys, then:"
+    printf "      export FOXREACH_API_KEY=otr_...\n" >&2
   fi
 }
 
 maybe_scaffold() {
   if [ "$SCAFFOLD" != true ]; then
-    [ -f "./cold.md" ] || log "No ./cold.md here. Re-run with --scaffold to start one, or see https://cold.md"
+    [ -f "./cold.md" ] || log "No ./cold.md here. Run /cold init inside your repo, or re-run with --scaffold."
     return
   fi
+  fetch_repo
   if [ ! -f "./cold.md" ]; then
-    cp "$EXTRACTED/examples/minimal.cold.md" "./cold.md"
+    cp "$EXTRACTED/plugin/cold-md/skills/cold-draft/references/minimal.cold.md" "./cold.md"
     ok "Scaffolded ./cold.md from the minimal template"
   fi
   if [ ! -f "./icp.md" ]; then
-    # Seed with a short placeholder; cold-icp expands it.
     cat > ./icp.md <<'ICP'
 ---
 coldMdVersion: "0"
@@ -151,7 +175,7 @@ source: scaffold
 
 # ICP - [Your product]
 
-Run `/cold icp https://your-site.com` (or just `/cold icp` for Q&A) to fill this in.
+Run `/cold icp https://your-site.com` (or `/cold icp` for Q&A) to fill this in.
 
 ## Company signals
 ## Title signals
@@ -159,37 +183,40 @@ Run `/cold icp https://your-site.com` (or just `/cold icp` for Q&A) to fill this
 ## Disqualifiers
 ## Qualification checklist
 ICP
-    ok "Scaffolded ./icp.md placeholder"
+    ok "Scaffolded ./icp.md"
   fi
 }
 
 print_next_steps() {
   [ "$QUIET" = true ] && return
-  commands_panel
-  printf '  %sNEXT%s\n' "$BOLD" "$RESET"
-  printf '  1. %s/cold icp https://your-site.com%s  (or just %s/cold icp%s for interactive Q&A)\n' "$ORANGE" "$RESET" "$ORANGE" "$RESET"
-  printf '  2. Edit %s./cold.md%s for voice + sequences + banned phrases\n' "$ORANGE" "$RESET"
-  printf '  3. %s/cold draft Jane Smith, CEO at Acme%s  to generate a spec-conformant opener\n' "$ORANGE" "$RESET"
-  if [ "$WITH_FOXREACH" = true ]; then
-    printf '\n  %sSend at scale:%s %s/cold send ./leads.csv%s   (requires FOXREACH_API_KEY)\n' "$WHITE" "$RESET" "$ORANGE" "$RESET"
-    printf '  %sDigest on cron:%s %s/cold report weekly%s\n' "$WHITE" "$RESET" "$ORANGE" "$RESET"
-    printf '\n  %sFoxReach dashboard:%s https://foxreach.io/app\n' "$DIM" "$RESET"
-    printf '  %sFree API key:%s      https://foxreach.io/signup\n' "$DIM" "$RESET"
-  else
-    printf '\n  %sSkills-only install. For full send + triage + report:%s\n' "$DIM" "$RESET"
-    printf '    %scurl -fsSL https://cold.md/install | bash%s   %s(default - includes the plugin)%s\n' "$ORANGE" "$RESET" "$DIM" "$RESET"
-  fi
-  printf '\n'
+  printf '\n  %sNEXT%s (inside Claude Code, in your repo)\n' "$BOLD" "$RESET"
+  printf '  1. %s/cold init%s                        set up .cold/ and check your FoxReach key\n' "$ORANGE" "$RESET"
+  printf '  2. %s/cold icp https://your-site.com%s   build icp.md\n' "$ORANGE" "$RESET"
+  printf '  3. %s/cold leads%s, %s/cold draft%s, %s/cold send%s\n' "$ORANGE" "$RESET" "$ORANGE" "$RESET" "$ORANGE" "$RESET"
+  printf '  4. a week later: %s/cold learn%s       results propose a cold.md diff for your review\n' "$ORANGE" "$RESET"
+  printf '\n  %sDocs:%s https://cold.md   %sSource:%s https://github.com/%s\n\n' "$DIM" "$RESET" "$DIM" "$RESET" "$REPO"
 }
 
 main() {
   banner
-  check_deps
-  fetch_repo
-  install_skills
-  if [ "$WITH_FOXREACH" = true ]; then
-    install_plugin
+  command -v curl >/dev/null 2>&1 || die "missing required tool: curl"
+  command -v tar  >/dev/null 2>&1 || die "missing required tool: tar"
+
+  if [ "$MODE" = plugin ] && ! command -v claude >/dev/null 2>&1; then
+    warn "claude CLI not found, copying skills into ~/.claude instead"
+    MODE=skills
   fi
+
+  if [ "$MODE" = plugin ]; then
+    retire_legacy_copies
+    if ! install_plugin; then
+      warn "plugin install failed, copying skills into ~/.claude instead"
+      MODE=skills
+    fi
+  fi
+  [ "$MODE" = skills ] && install_skills
+
+  check_foxreach
   maybe_scaffold
   print_next_steps
 }

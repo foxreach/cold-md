@@ -1,60 +1,92 @@
-<!-- Updated: 2026-04-17 -->
-
 ![cold.md](assets/cover.png)
 
-# cold.md - The Claude Code plugin that runs your cold outreach
+# cold.md - cold outreach that improves itself
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Spec: CC-BY-4.0](https://img.shields.io/badge/Spec-CC--BY--4.0-blue.svg)](https://creativecommons.org/licenses/by/4.0/)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-C2410C)](https://claude.ai/claude-code)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-C2410C)](https://docs.claude.com/en/docs/claude-code/plugins)
 [![Site](https://img.shields.io/badge/cold.md-live-1a1512)](https://cold.md)
 
-Six skills, one `/cold` command. ICP builder, lead sourcing, drafter, sender, reply triage, reporter. Reads a portable `cold.md` spec from your repo. Backed by [FoxReach](https://foxreach.io) for sending.
+An open spec for describing your outbound as one markdown file, and a Claude Code plugin that runs it. Eleven skills, one `/cold` command: ICP, offer, lead sourcing, verification, drafting, sending, A/B experiments, reply triage and reporting. When an experiment finishes, the plugin proposes a diff to your `cold.md` and you approve it. Sending runs on [FoxReach](https://www.foxreach.io).
 
-**Not another cold-email skill.** The other Claude Code cold-email skills on the market draft messages. That's step 3 of a six-step loop. `cold.md` is the whole loop.
-
-## Install in 30 seconds
+## Install
 
 ```bash
 curl -fsSL https://cold.md/install | bash
 ```
 
-That installs the full `cold-md` plugin (all 6 skills, the `/cold` router) to `~/.claude/plugins/cold-md/`. Pass `--skills-only` to skip the plugin and get the open skills only. Pass `--scaffold` to also drop `cold.md` + `icp.md` templates in your current repo.
+With the `claude` CLI on your PATH this adds the `foxreach/cold-md` marketplace and installs the `cold-md` plugin. Re-running updates it. Or, inside Claude Code:
+
+```
+/plugin marketplace add foxreach/cold-md
+/plugin install cold-md@cold-md
+```
+
+Options: `--scaffold` drops starter `cold.md` and `icp.md` files in the current directory. `--skills-only` copies the skills to `~/.claude/skills/` and `/cold` to `~/.claude/commands/` instead of installing the plugin.
+
+The sending skills use the FoxReach CLI and an API key (Settings > API Keys in FoxReach):
+
+```bash
+pip install foxreach-cli
+export FOXREACH_API_KEY=otr_...
+```
 
 ## The loop
 
 ```bash
-/cold icp https://your-site.com       # Step 1: who - builds icp.md
-/cold leads --count 100                 # Step 2: prospects - writes leads.csv (v0.2)
-/cold draft Jane, CEO at Acme           # Step 3: draft from cold.md
-/cold send ./leads.csv                  # Step 4: queue via FoxReach (v0.2)
-/cold triage                            # Step 5: sort replies, draft responses (v0.2)
-/cold report weekly                     # Step 6: digest on cron
+/cold init                          # once: .cold/config.json, checks your key and mailboxes
+/cold icp https://your-site.com     # who: icp.md, checked with web search
+/cold offer                         # what: offer.md, proposes a ## Value edit
+/cold leads --finder --count 200    # Lead Finder or a CSV, scored against icp.md, verified
+/cold experiment                    # the next A/B, written down before anything sends
+/cold draft Jane, CEO at Acme       # control and variant that obey cold.md
+/cold send                          # pre-flight checks, create the campaign, start it
+/cold triage                        # daily: categorize replies, draft answers from ## Objections
+/cold learn                         # after the test window: z-test, proposed cold.md diff
+/cold report weekly                 # digest, schedulable
 ```
 
-## The six skills
+## The skills
 
-| # | Skill | Purpose | v0 Status | Requires |
-|---|---|---|---|---|
-| 01 | [`cold-icp`](skills/cold-icp/) | Build `icp.md` from a URL or Q&A | **Live** | Nothing |
-| 02 | [`cold-leads`](skills/cold-leads/) | Source leads matching `icp.md` into `leads.csv` | Stub (v0.2) | FoxReach API key |
-| 03 | [`cold-draft`](skills/cold-draft/) | Draft openers, bumps, breakups from `cold.md` | **Live** | Nothing |
-| 04 | [`cold-send`](skills/cold-send/) | Queue campaign via FoxReach with safety checks | Stub (v0.2) | FoxReach API key |
-| 05 | [`cold-triage`](skills/cold-triage/) | Sort inbound replies, draft responses | Stub (v0.2) | FoxReach API key |
-| 06 | [`cold-report`](skills/cold-report/) | Daily or weekly digest, cron-ready | **Live** | FoxReach API key |
+| # | Skill | What it does | FoxReach key |
+|---|---|---|---|
+| 01 | `cold-icp` | Builds `icp.md` from a URL or Q&A, validated by web search | optional |
+| 02 | `cold-offer` | Competitor and market research, writes `offer.md` | no |
+| 03 | `cold-leads` | CSV import or Lead Finder search, ICP scoring, email verification, import | yes |
+| 04 | `cold-research` | Per-lead research bundles for personalization experiments | no |
+| 05 | `cold-draft` | Openers, bumps, breakups from `cold.md`; `/cold lint` | no |
+| 06 | `cold-send` | Campaign, sequence, mailboxes and leads, with pre-flight checks | yes |
+| 07 | `cold-experiment` | Picks the next A/B from a variable ladder, writes the protocol | no |
+| 08 | `cold-learn` | Per-variant reply stats, z-test, proposed `cold.md` diff | yes |
+| 09 | `cold-triage` | Categorizes replies, drafts answers, sends only on approval | yes |
+| 10 | `cold-status` | Beliefs, running experiments, pending diffs, next step | no |
+| 11 | `cold-report` | Daily or weekly digest; `/cold audit <domain>` DNS and mailbox check | yes |
 
-Stubs are intentional. They define a stable contract so you can wire your own tooling today; the full implementation ships in v0.2.
+Source: [`plugin/cold-md/skills/`](plugin/cold-md/skills/).
 
-## The two files
+## What the sending skills use in FoxReach
+
+| Piece | Command | Used by |
+|---|---|---|
+| Lead Finder (people database, work email reveal) | `foxreach lead-finder count / search / reveal` | cold-leads, cold-icp |
+| Email verification | `foxreach verification verify-bulk` | cold-leads, cold-send |
+| Provider matching (first email from the recipient's provider) | `foxreach campaigns esp-mix`, `campaigns create --esp-matching` | cold-send, cold-report |
+| Mailbox health (warmup inbox placement) | `foxreach accounts health`, `warmup stats` | cold-send, cold-report |
+| Sequences and A/B variants | `foxreach sequences create / list` | cold-send, cold-learn |
+| Reply categories per variant | `foxreach inbox categorize-stats --group-by variant` | cold-learn, cold-report |
+
+One manual step: the public API reads A/B variants but cannot create them yet. `cold-send` writes your control as the sequence step, prints the variant copy, and you add it in the campaign editor ([how](https://www.foxreach.io/docs/product/ab-testing)). The skill then reads the variant IDs back and the test runs from there.
+
+## The files
 
 ```
-./cold.md   # voice, sequence, proof, banned - what the skills write
-./icp.md    # audience, disqualifiers, qualification checklist - who they target
+./cold.md          voice, sequence, proof, banned: what gets written
+./icp.md           audience, disqualifiers, qualification checklist: who gets it
+./offer.md         the value prop and the research behind it
+./.cold/           config, experiment protocols, beliefs, decision log (commit it)
 ```
 
-Both live at your repo root. Both are plain markdown. Both are portable across vendors.
-
-### `cold.md` at a glance
+`cold.md` at a glance:
 
 ```
 # My Product - cold.md
@@ -69,64 +101,43 @@ Both live at your repo root. Both are plain markdown. Both are portable across v
 ## Banned      - phrases that never appear
 ```
 
-Spec: [`spec/cold-md-v0.md`](spec/cold-md-v0.md). Also published at [cold.md](https://cold.md).
+Spec: [`spec/cold-md-v0.md`](spec/cold-md-v0.md). Examples: [`examples/minimal.cold.md`](examples/minimal.cold.md) and [FoxReach's own](examples/foxreach.cold.md).
 
-## Why a suite, not a skill
+## How cold.md changes itself
 
-| Single cold-email skill | cold.md suite |
-|---|---|
-| Writes copy when asked | Owns every step: ICP → leads → draft → send → triage → report |
-| No ICP, no sending, no triage | All six, each callable independently |
-| Config lives in the prompt | Config lives in `cold.md` + `icp.md` in your repo |
-| Every project restarts from scratch | Files travel with your team |
-| Vendor-locked to whichever LLM | Vendor-neutral spec. Swap backends without rewriting. |
+`cold-learn` never edits `cold.md` directly. It writes `.cold/proposed-diff.patch` and the numbers behind it (`.cold/experiments/<id>/results.json`), and you apply or reject it. After three approved diffs in a row, auto-commit can switch on (`trust.autoCommitAfterApprovedStreak`); one rejection resets the streak. Guards pause a campaign when bounces or not-interested replies cross your thresholds. The deep dive: [cold.md autoresearch](https://www.foxreach.io/blog/cold-md-autoresearch).
 
-## Configure FoxReach
+## Scheduled reports
 
-The skills that send, triage, or report need an API key:
+`cold-report` runs unattended. With Claude Code's `/schedule`:
 
-```bash
-export FOXREACH_API_KEY=fr_...
 ```
-
-Free tier: https://foxreach.io/signup.
-
-## Automated reporting
-
-`cold-report` is designed to run unattended. Two recommended paths:
-
-**(a) FoxReach dashboard** - schedule digest in Notifications. Posts to Slack/email. Zero local setup.
-
-**(b) Claude Code `/schedule` skill** - for power users who keep Claude Code running:
-```bash
-/schedule "0 9 * * 1" "cold report weekly"
+/schedule "0 9 * * 1" "/cold report weekly"
 ```
 
 ## Repository layout
 
 ```
-spec/             The cold.md file spec. Versioned.
-skills/           The six standalone skills (each installable solo).
-plugin/cold-md/   The Claude Code plugin that bundles all six + the /cold router.
-examples/         Sample cold.md files (minimal starter + the real FoxReach one).
-site/             Next.js site at cold.md.
-assets/           Cover image, brand.
-memory/           Architecture, decisions, changelog.
+spec/                     the cold.md spec (versioned) and the autoresearch design
+plugin/cold-md/           the Claude Code plugin: skills/, commands/cold.md, manifest
+.claude-plugin/           marketplace.json, so `/plugin marketplace add foxreach/cold-md` works
+examples/                 a minimal starter and FoxReach's production cold.md
+site/                     the Next.js site at cold.md (installer at site/public/install.sh)
+scripts/check.sh          pre-commit checks: manifests, reference copies, dead links
+memory/                   architecture, decisions, changelog
 ```
 
 ## Contributing
 
-The spec is the product. Every change to `spec/` is a commercial decision - open an issue first. New skills, examples, docs, and implementations: PRs welcome. Especially interested in other backend implementations (Smartlead plugin? Mailcoach plugin? PR it).
+The spec is the product: open an issue before changing `spec/`. Skills, examples and other sending backends are welcome as PRs. Run `scripts/check.sh` before opening one.
 
 ## License
 
-- **Code** (skills, plugin, site): [MIT](LICENSE)
-- **Spec** (`spec/*`): [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
+- Code (skills, plugin, site): [MIT](LICENSE)
+- Spec (`spec/*`): [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
 
 ## Star history
 
-[![Star History Chart](https://api.star-history.com/svg?repos=concaption/cold-md&type=Date)](https://star-history.com/#concaption/cold-md&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=foxreach/cold-md&type=Date)](https://star-history.com/#foxreach/cold-md&Date)
 
-## Built by
-
-The team at [FoxReach](https://foxreach.io). Cold email infrastructure that doesn't torch your domain.
+Built by the team at [FoxReach](https://www.foxreach.io).

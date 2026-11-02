@@ -1,7 +1,7 @@
 ---
 coldMdVersion: "0"
 owner: "Usama Navid <usama@foxreach.io>"
-updated: 2026-04-17
+updated: 2026-11-03
 license: CC-BY-4.0
 ---
 
@@ -11,7 +11,7 @@ The actual cold.md FoxReach uses for its own outbound. Lifted straight from prod
 
 ## Identity
 
-I'm Usama, founder of FoxReach. We build cold email infrastructure that doesn't torch your domain - warmup, reply triage, booked-calls dashboard. Before FoxReach I ran outbound for 40+ B2B clients across Upwork. I care about this stack because I've broken it myself.
+I'm Usama, founder of FoxReach. We build cold email that lands in the inbox, for sales teams and AI agents - warmup, lead sourcing, verification, sequences and one inbox for every reply. Before FoxReach I ran outbound for 40+ B2B clients across Upwork. I care about this stack because I've broken it myself.
 
 ## Audience
 
@@ -28,7 +28,7 @@ I'm Usama, founder of FoxReach. We build cold email infrastructure that doesn't 
 
 ## Value
 
-FoxReach warms your inboxes, routes replies through AI triage, and hands you a booked-calls dashboard - for teams managing 5+ sending domains.
+FoxReach warms your mailboxes, finds and verifies leads, sends the sequence and collects every reply in one inbox, with an API, CLI and MCP server so your agents can run it too.
 
 ## Voice
 
@@ -51,8 +51,8 @@ FoxReach warms your inboxes, routes replies through AI triage, and hands you a b
 - 40+ B2B SaaS and agency clients across 2024-2026
 - Average 8.4% reply rate across warmed domains
 - Managed warmup across 200+ sending inboxes simultaneously
-- Public deliverability audit tool at https://foxreach.io/audit
-- Reference architecture: https://foxreach.io/how-it-works
+- Free SPF, DKIM and DMARC checker: https://www.foxreach.io/free-tools/spf-dkim-dmarc-checker
+- Public API, CLI, Python and TypeScript SDKs and an MCP server: https://www.foxreach.io/docs/introduction
 - Open-source cold.md spec: https://cold.md
 
 ## Sequence
@@ -66,7 +66,7 @@ FoxReach warms your inboxes, routes replies through AI triage, and hands you a b
 ### 2. Bump (Day 3)
 - Subject: "Re: " + original opener subject.
 - Body: 20 words max.
-- Offer a free artifact: deliverability audit, warmup benchmark, or reply-triage demo.
+- Offer a free artifact: SPF/DKIM/DMARC check, warmup benchmark, or a teardown of one sequence.
 - No question.
 
 ### 3. Case study (Day 7)
@@ -85,23 +85,23 @@ FoxReach warms your inboxes, routes replies through AI triage, and hands you a b
 
 > "We already use Instantly / Smartlead / Apollo."
 
-Great - most of our best clients came from one of those. We sit on top: warmup that actually builds reputation, reply triage that sorts interested/not-now/OOO, and a booked-calls view across every sending domain. Want a 5-minute teardown of your current setup?
+Great - most of our best clients came from one of those. The difference shows up in the inbox: warmup that builds reputation, provider matching so Gmail leads hear from a Gmail mailbox, and one inbox for replies across every sending domain. Want a 5-minute teardown of your current setup?
 
 > "We built this in-house."
 
-Respect. Most in-house systems break at the 10-domain mark - warmup gets noisy and triage gets manual. If you want a second pair of eyes on what you've built, the deliverability audit is free and takes 10 minutes: https://foxreach.io/audit.
+Respect. Most in-house systems break at the 10-domain mark - warmup gets noisy and triage gets manual. If you want a second pair of eyes on what you've built, the SPF/DKIM/DMARC check is free and takes a minute: https://www.foxreach.io/free-tools/spf-dkim-dmarc-checker.
 
 > "Not interested."
 
-No problem. If things shift, the audit is free and one-shot: https://foxreach.io/audit. Best of luck with Q2.
+No problem. If things shift, the domain check is free: https://www.foxreach.io/free-tools/spf-dkim-dmarc-checker. Best of luck this quarter.
 
 > "Send more info."
 
-Happy to, but faster if I know what you care about - deliverability, reply rates, or the triage layer. Which one?
+Happy to, but faster if I know what you care about - deliverability, lead sourcing, or handling replies. Which one?
 
 > "What does it cost?"
 
-Depends on domain count. For 5 domains, we start at a flat monthly. For 20+, it's per-domain. Want me to send the two-line pricing note?
+There's a free plan, and the paid plans are on one page: https://www.foxreach.io/pricing. Want the two-line version for your setup?
 
 ## Banned
 

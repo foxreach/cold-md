@@ -3,18 +3,31 @@ import Link from 'next/link'
 import CopyButton from '../components/CopyButton'
 
 const INSTALL_CMD = 'curl -fsSL https://cold.md/install | bash'
+const REPO_URL = 'https://github.com/foxreach/cold-md'
+const SPEC_URL = `${REPO_URL}/blob/main/spec/cold-md-v0.md`
+const PLUGIN_CMDS = '/plugin marketplace add foxreach/cold-md\n/plugin install cold-md@cold-md'
 
 const SKILLS = [
-  { num: '01', name: 'cold-icp',        desc: 'Build your ICP from a URL or Q&A, then validate via web search (competitor scan, title prevalence, pain language). Writes icp.md.',  status: 'live', needsKey: false },
-  { num: '02', name: 'cold-offer',      desc: 'Refine your value prop via competitor pricing + market research. Writes offer.md, proposes a cold.md ## Value diff.',               status: 'live', needsKey: false },
-  { num: '03', name: 'cold-leads',      desc: 'Import a CSV, score each row against icp.md, optional per-lead web research, push survivors to FoxReach.',                          status: 'live', needsKey: true  },
-  { num: '04', name: 'cold-draft',      desc: 'Draft openers, bumps, breakups from cold.md. Variant-pair generation when an experiment is active.',                                status: 'live', needsKey: false },
-  { num: '05', name: 'cold-send',       desc: 'Push to FoxReach with 6 pre-flight checks: banned-phrase lint, audience, plan limits, bounce guard, warmup, duplicates.',           status: 'live', needsKey: true  },
-  { num: '06', name: 'cold-experiment', desc: 'Design the next A/B from the variable tier ladder (subject → opener → CTA → cadence → tone). Writes the protocol.',                 status: 'live', needsKey: false },
-  { num: '07', name: 'cold-learn',      desc: 'Read variant stats, run z-test on interested-reply rate, propose a cold.md diff under the trust ladder.',                           status: 'live', needsKey: true  },
-  { num: '08', name: 'cold-triage',     desc: 'Pull unread inbox, bucket by category, draft responses to interested replies against ## Objections.',                               status: 'live', needsKey: true  },
-  { num: '09', name: 'cold-status',     desc: 'One-screen dashboard: current beliefs, active experiments, pending diffs, suggested next action.',                                  status: 'live', needsKey: false },
-  { num: '10', name: 'cold-report',     desc: 'Daily or weekly digest: deliverability, replies, experiment outcomes, pending diffs. Runs on cron.',                                status: 'live', needsKey: true  },
+  { num: '01', name: 'cold-icp',        desc: 'Build icp.md from a URL or Q&A, then check it with web search: competitors, title prevalence, pain language.',                       needsKey: false },
+  { num: '02', name: 'cold-offer',      desc: 'Sharpen the value prop with competitor pricing and market research. Writes offer.md and proposes a ## Value diff.',                 needsKey: false },
+  { num: '03', name: 'cold-leads',      desc: 'Import a CSV or search the FoxReach Lead Finder database. Scores every lead against icp.md, verifies emails, then imports.',       needsKey: true  },
+  { num: '04', name: 'cold-research',   desc: 'Per-lead research bundles for personalization tests. Parallel batches, one cited hook per lead, A/B arm assignments.',             needsKey: false },
+  { num: '05', name: 'cold-draft',      desc: 'Draft openers, bumps and breakups that obey cold.md. Writes a control and a variant when an experiment is running.',               needsKey: false },
+  { num: '06', name: 'cold-send',       desc: 'Creates the campaign with pre-flight checks: banned phrases, audience, verification, mailbox health, provider match, duplicates.', needsKey: true  },
+  { num: '07', name: 'cold-experiment', desc: 'Picks the next A/B from the variable ladder (subject, opener, CTA, cadence, tone) and writes the protocol before anything sends.', needsKey: false },
+  { num: '08', name: 'cold-learn',      desc: 'Reads per-variant reply categories, runs a z-test on interested-reply rate and proposes a cold.md diff for your approval.',          needsKey: true  },
+  { num: '09', name: 'cold-triage',     desc: 'Categorizes unread replies and drafts answers from ## Objections. Nothing is sent until you approve it.',                           needsKey: true  },
+  { num: '10', name: 'cold-status',     desc: 'One screen: what the experiments have taught you, what is running, pending diffs, the next step.',                                  needsKey: false },
+  { num: '11', name: 'cold-report',     desc: 'Daily or weekly digest of sends, replies, mailbox health and experiment outcomes. Also runs /cold audit on a sending domain.',      needsKey: true  },
+] as const
+
+const FOXREACH_PIECES = [
+  { title: 'Lead Finder',        cmd: 'foxreach lead-finder count',       desc: 'Turns icp.md into people-database filters. Counting is free; you approve the reveal cost before any work email is revealed.' },
+  { title: 'Email verification', cmd: 'foxreach verification verify-bulk', desc: 'Every CSV lead is checked before import. Bad addresses are dropped, and only definite good or bad verdicts use a credit.' },
+  { title: 'Provider matching',  cmd: 'foxreach campaigns esp-mix',       desc: 'Shows how your mailboxes and your leads split across Google, Microsoft and the rest, so the first email can go out from the same provider.' },
+  { title: 'Mailbox health',     cmd: 'foxreach accounts health',         desc: 'Health is the share of warmup mail that lands in the inbox. cold-send leaves out any mailbox under your floor before the campaign starts.' },
+  { title: 'A/B variants',       cmd: 'foxreach sequences list',          desc: 'cold-send writes your control and hands you the variant to paste into the campaign step, then reads the variant IDs back for the test.' },
+  { title: 'Reply stats',        cmd: 'foxreach inbox categorize-stats',  desc: 'Reply categories per variant, step and day. This is what the z-test in cold-learn runs on.' },
 ] as const
 
 const SPEC_SNIPPET = `# My Product - cold.md
@@ -29,13 +42,16 @@ const SPEC_SNIPPET = `# My Product - cold.md
 ## Banned      - phrases that never appear`
 
 const CMD_STACK = [
-  '/cold icp https://your-site.com',
-  '/cold leads --count 100',
-  '/cold draft Jane, CEO at Acme',
-  '/cold send ./leads.csv',
-  '/cold triage',
-  '/cold report weekly',
-]
+  ['/cold init', 'set up .cold/, check your FoxReach key'],
+  ['/cold icp https://your-site.com', 'who to reach'],
+  ['/cold leads --finder --count 200', 'source, score, verify'],
+  ['/cold experiment', 'pick the next A/B'],
+  ['/cold draft Jane, CEO at Acme', 'control + variant'],
+  ['/cold send', 'pre-flight, create, start'],
+  ['/cold triage', 'daily: sort replies'],
+  ['/cold learn', 'a week later: z-test, cold.md diff'],
+  ['/cold report weekly', 'digest on cron'],
+] as const
 
 export default function Home() {
   return (
@@ -46,9 +62,10 @@ export default function Home() {
         <div className="flex items-center gap-6 text-sm text-muted">
           <Link href="#loop" className="hover:text-ink transition-colors">the loop</Link>
           <Link href="#skills" className="hover:text-ink transition-colors">skills</Link>
+          <Link href="#foxreach" className="hover:text-ink transition-colors hidden sm:inline">foxreach</Link>
           <Link href="#install" className="hover:text-ink transition-colors">install</Link>
           <Link href="#spec" className="hover:text-ink transition-colors">spec</Link>
-          <a href="https://github.com/concaption/cold-md" target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">github</a>
+          <a href={REPO_URL} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">github</a>
         </div>
       </nav>
 
@@ -56,7 +73,7 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-6 pt-12 sm:pt-20 pb-16">
         <div className="flex items-center gap-2 text-xs font-mono text-fox mb-8">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-fox animate-pulse" />
-          v0.2 - autoresearch loop. Ten skills, one /cold command.
+          v0.3 - eleven skills, one /cold command. Lead Finder, verification and provider matching built in.
         </div>
 
         <h1 className="font-display text-hero text-ink max-w-5xl">
@@ -70,9 +87,9 @@ export default function Home() {
           measures interested-reply rate, and proposes a diff to your{' '}
           <code className="font-mono text-base px-1.5 py-0.5 bg-fox-tint text-fox rounded">cold.md</code>{' '}
           policy file. Runs on{' '}
-          <a href="https://foxreach.io" className="underline decoration-fox/40 underline-offset-4 hover:decoration-fox">FoxReach</a>{' '}
+          <a href="https://www.foxreach.io" className="underline decoration-fox/40 underline-offset-4 hover:decoration-fox">FoxReach</a>{' '}
           infrastructure.{' '}
-          <a href="https://foxreach.io/blog/cold-md-autoresearch" className="underline decoration-fox/40 underline-offset-4 hover:decoration-fox">
+          <a href="https://www.foxreach.io/blog/cold-md-autoresearch" className="underline decoration-fox/40 underline-offset-4 hover:decoration-fox">
             Read the deep dive →
           </a>
         </p>
@@ -85,7 +102,7 @@ export default function Home() {
           <Link href="#loop" className="inline-flex items-center gap-2 text-sm text-ink/70 hover:text-ink px-5 py-3 rounded-lg border border-line hover:border-ink/30 transition-colors">
             See the loop
           </Link>
-          <a href="https://github.com/concaption/cold-md" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-ink/70 hover:text-ink px-5 py-3">
+          <a href={REPO_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-ink/70 hover:text-ink px-5 py-3">
             <GitHubGlyph />GitHub
           </a>
         </div>
@@ -109,11 +126,12 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
           <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">the loop</div>
           <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-4">
-            Six steps. One command each.
+            One loop. One command per step.
           </h2>
           <p className="text-ink/70 max-w-2xl mb-12 leading-relaxed">
-            Every step reads and writes files your team can review. No black box, no vendor lock-in.
-            Swap FoxReach for any backend that implements the contract - the skills keep working.
+            Every step reads and writes files your team can review: cold.md, icp.md and the
+            experiment log in .cold/. The policy is yours and portable; FoxReach is the sending layer
+            the skills call today.
           </p>
 
           <div className="rounded-xl border border-line bg-ink text-paper overflow-hidden">
@@ -126,14 +144,15 @@ export default function Home() {
                 </div>
                 <span className="font-mono text-xs text-paper/50 ml-2">terminal</span>
               </div>
-              <CopyButton text={CMD_STACK.join('\n')} label="copy loop" />
+              <CopyButton text={CMD_STACK.map(([cmd]) => cmd).join('\n')} label="copy loop" />
             </div>
             <pre className="p-5 sm:p-8 text-sm sm:text-base font-mono leading-loose overflow-x-auto no-scrollbar">
               <code>
-                {CMD_STACK.map((line, i) => (
-                  <div key={i} className="flex items-baseline gap-4">
+                {CMD_STACK.map(([cmd, note], i) => (
+                  <div key={cmd} className="flex items-baseline gap-4">
                     <span className="text-fox-light tabular-nums w-8 shrink-0">{String(i + 1).padStart(2, '0')}</span>
-                    <span className="text-paper/90">{line}</span>
+                    <span className="text-paper/90 whitespace-nowrap">{cmd}</span>
+                    <span className="hidden md:inline text-paper/40 text-sm whitespace-nowrap"># {note}</span>
                   </div>
                 ))}
               </code>
@@ -144,7 +163,7 @@ export default function Home() {
 
       {/* Skills grid */}
       <section id="skills" className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-        <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">the six skills</div>
+        <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">the eleven skills</div>
         <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-10">
           Each skill owns one file.
         </h2>
@@ -157,11 +176,7 @@ export default function Home() {
                   <span className="font-mono text-xs text-muted tabular-nums">{s.num}</span>
                   <h3 className="font-mono text-base font-medium text-fox">{s.name}</h3>
                 </div>
-                {s.status === 'live' ? (
-                  <span className="font-mono text-[10px] tracking-wider uppercase bg-green-50 text-green-700 px-2 py-0.5 rounded-full border border-green-200">live</span>
-                ) : (
-                  <span className="font-mono text-[10px] tracking-wider uppercase bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">v0.2</span>
-                )}
+
               </div>
               <p className="text-sm text-ink/75 leading-relaxed mb-3">{s.desc}</p>
               {s.needsKey && (
@@ -169,6 +184,12 @@ export default function Home() {
               )}
             </div>
           ))}
+          <a href={SPEC_URL} target="_blank" rel="noreferrer" className="group bg-fox-tint/40 p-6 sm:p-7 hover:bg-fox-tint transition-colors flex flex-col justify-between">
+            <p className="text-sm text-ink/75 leading-relaxed">
+              The spec is vendor-neutral. The sending skills call the foxreach CLI today; a version for another platform is a welcome PR.
+            </p>
+            <span className="mt-4 font-mono text-sm text-fox">read the spec <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span></span>
+          </a>
         </div>
 
         <p className="mt-8 text-sm text-muted">
@@ -178,12 +199,41 @@ export default function Home() {
         </p>
       </section>
 
+      {/* What runs on FoxReach */}
+      <section id="foxreach" className="border-t border-line bg-white/60">
+        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+          <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">the sending layer</div>
+          <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-4 max-w-3xl">
+            The skills decide. FoxReach does the sending.
+          </h2>
+          <p className="text-ink/70 max-w-2xl mb-12 leading-relaxed">
+            The FoxReach-backed skills call the public{' '}
+            <a href="https://www.foxreach.io/docs/sdks/cli" target="_blank" rel="noreferrer" className="underline decoration-fox/40 underline-offset-4 hover:decoration-fox">foxreach CLI</a>{' '}
+            and API. These are the pieces they use, and the command behind each one.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-line rounded-xl overflow-hidden border border-line">
+            {FOXREACH_PIECES.map((p) => (
+              <div key={p.title} className="bg-white p-6 sm:p-7">
+                <h3 className="font-medium text-ink mb-2">{p.title}</h3>
+                <p className="text-sm text-ink/75 leading-relaxed mb-4">{p.desc}</p>
+                <code className="font-mono text-[11px] text-fox bg-fox-tint px-1.5 py-0.5 rounded break-all">{p.cmd}</code>
+              </div>
+            ))}
+          </div>
+          <p className="mt-8 text-sm text-muted max-w-2xl">
+            Variants are added in the FoxReach campaign editor because the public API reads them but does not create
+            them yet.{' '}
+            <a href="https://www.foxreach.io/docs/product/ab-testing" target="_blank" rel="noreferrer" className="text-ink hover:text-fox">How A/B testing works in FoxReach</a>.
+          </p>
+        </div>
+      </section>
+
       {/* Install */}
       <section id="install" className="border-y border-line bg-ink text-paper">
         <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
           <div className="text-xs font-mono text-fox-light uppercase tracking-wider mb-3">install</div>
           <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-10 max-w-3xl">
-            One command. Six skills.<br />One loop.
+            One command.<br />Eleven skills. One loop.
           </h2>
 
           <div className="rounded-xl border border-paper/10 bg-paper/5 overflow-hidden max-w-3xl">
@@ -201,11 +251,21 @@ export default function Home() {
             </pre>
           </div>
 
+          <div className="mt-6 rounded-xl border border-paper/10 bg-paper/5 overflow-hidden max-w-3xl">
+            <div className="px-5 py-3 border-b border-paper/10 flex items-center justify-between">
+              <span className="font-mono text-xs text-paper/50">or inside Claude Code</span>
+              <CopyButton text={PLUGIN_CMDS} label="copy commands" />
+            </div>
+            <pre className="p-6 text-sm sm:text-base font-mono overflow-x-auto no-scrollbar text-paper">
+              <code>{PLUGIN_CMDS}</code>
+            </pre>
+          </div>
+
           <div className="mt-10 grid sm:grid-cols-3 gap-8 max-w-4xl">
             {[
-              ['01', 'Installs the full plugin', 'All six skills, the /cold router, into ~/.claude/plugins/cold-md/'],
-              ['02', 'Scaffolds cold.md + icp.md', 'Pass --scaffold to drop starter templates in your current repo'],
-              ['03', 'Ready to draft', 'In Claude Code: /cold icp https://your-site.com - then iterate'],
+              ['01', 'Installs the plugin', 'Adds the foxreach/cold-md marketplace and installs all eleven skills plus /cold. Re-run to update.'],
+              ['02', 'Sets up your repo', 'In Claude Code, /cold init asks nine questions and writes .cold/config.json. --scaffold starts cold.md and icp.md.'],
+              ['03', 'Runs the loop', '/cold icp https://your-site.com, then leads, draft, send. A week later, /cold learn.'],
             ].map(([num, title, desc]) => (
               <div key={num}>
                 <div className="font-mono text-xs text-fox-light mb-3 tabular-nums">{num}</div>
@@ -216,13 +276,15 @@ export default function Home() {
           </div>
 
           <div className="mt-10 text-sm text-paper/60 max-w-2xl">
-            The FoxReach-backed skills (leads, send, triage, report) activate when you set{' '}
-            <code className="font-mono text-xs bg-paper/10 px-1.5 py-0.5 rounded">FOXREACH_API_KEY</code>.{' '}
-            <a href="https://foxreach.io/signup" target="_blank" rel="noreferrer" className="text-fox-light hover:text-paper">Free tier signup →</a>
+            The FoxReach-backed skills (leads, send, learn, triage, report) need{' '}
+            <code className="font-mono text-xs bg-paper/10 px-1.5 py-0.5 rounded">pip install foxreach-cli</code> and{' '}
+            <code className="font-mono text-xs bg-paper/10 px-1.5 py-0.5 rounded">FOXREACH_API_KEY=otr_...</code>{' '}
+            from Settings, API Keys.{' '}
+            <a href="https://www.foxreach.io/signup" target="_blank" rel="noreferrer" className="text-fox-light hover:text-paper">Create a FoxReach account →</a>
           </div>
 
           <div className="mt-6 text-xs text-paper/40">
-            Prefer skills-only, no plugin? <code className="font-mono bg-paper/10 px-1.5 py-0.5 rounded">curl -fsSL https://cold.md/install | bash -s -- --skills-only</code>
+            No plugin, just skills in ~/.claude? <code className="font-mono bg-paper/10 px-1.5 py-0.5 rounded">curl -fsSL https://cold.md/install | bash -s -- --skills-only</code>
           </div>
         </div>
       </section>
@@ -246,7 +308,7 @@ export default function Home() {
               <li className="flex gap-3"><span className="font-mono text-fox">→</span>Audience disqualifiers are respected - won't contact leads who fail your ICP.</li>
             </ul>
             <div className="mt-8 flex gap-3">
-              <a href="https://github.com/concaption/cold-md/blob/main/spec/cold-md-v0.md" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-medium text-ink hover:text-fox">
+              <a href={SPEC_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-medium text-ink hover:text-fox">
                 Read the v0 spec →
               </a>
             </div>
@@ -279,7 +341,7 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
           <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">why a suite, not a skill</div>
           <h2 className="font-display text-3xl sm:text-4xl leading-tight mb-10 max-w-3xl">
-            Other Claude Code cold-email skills draft. That's one step in a six-step loop.
+            Other Claude Code cold-email skills draft. Drafting is one step of the loop.
           </h2>
           <div className="grid sm:grid-cols-2 gap-10">
             <div>
@@ -288,6 +350,7 @@ export default function Home() {
                 <li>- Writes copy when asked</li>
                 <li>- No ICP, no lead sourcing, no sending</li>
                 <li>- No reply triage, no reporting</li>
+                <li>- Never learns from what got replies</li>
                 <li>- Every project starts from scratch</li>
                 <li>- Config lives in the prompt, not the repo</li>
               </ul>
@@ -297,7 +360,8 @@ export default function Home() {
               <ul className="space-y-2 text-sm text-ink/90">
                 <li>→ Every step of the loop has its own skill</li>
                 <li>→ ICP, voice, proof, sequences committed to your repo</li>
-                <li>→ <code className="font-mono text-xs px-1 bg-fox-tint text-fox rounded">/cold report</code> runs on cron - you never open a dashboard</li>
+                <li>→ A/B results rewrite cold.md, behind your approval</li>
+                <li>→ <code className="font-mono text-xs px-1 bg-fox-tint text-fox rounded">/cold report</code> runs on a schedule, no dashboard to open</li>
                 <li>→ Swap sending infra without rewriting anything</li>
                 <li>→ Works for you, your team, your agents</li>
               </ul>
@@ -313,13 +377,13 @@ export default function Home() {
             <div className="font-mono text-sm font-medium mb-1">cold.md</div>
             <p className="text-sm text-muted max-w-md">
               Open spec, MIT + CC-BY-4.0. Built and maintained by the team at{' '}
-              <a href="https://foxreach.io" target="_blank" rel="noreferrer" className="text-ink hover:text-fox">FoxReach</a>.
+              <a href="https://www.foxreach.io" target="_blank" rel="noreferrer" className="text-ink hover:text-fox">FoxReach</a>.
             </p>
           </div>
           <div className="flex items-center gap-5 text-sm text-muted">
-            <a href="https://github.com/concaption/cold-md" target="_blank" rel="noreferrer" className="hover:text-ink">GitHub</a>
-            <a href="https://github.com/concaption/cold-md/blob/main/spec/cold-md-v0.md" target="_blank" rel="noreferrer" className="hover:text-ink">Spec v0</a>
-            <a href="https://foxreach.io" target="_blank" rel="noreferrer" className="hover:text-ink">FoxReach</a>
+            <a href={REPO_URL} target="_blank" rel="noreferrer" className="hover:text-ink">GitHub</a>
+            <a href={SPEC_URL} target="_blank" rel="noreferrer" className="hover:text-ink">Spec v0</a>
+            <a href="https://www.foxreach.io" target="_blank" rel="noreferrer" className="hover:text-ink">FoxReach</a>
           </div>
         </div>
       </footer>

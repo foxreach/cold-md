@@ -1,306 +1,189 @@
 ---
 name: cold-learn
-description: Read the active experiment's results from FoxReach, run the statistical test, and propose a cold.md diff (or auto-commit if trust earned). Computes interested-reply rate per variant via foxreach inbox categorize-stats, applies a two-proportion z-test, checks guards (bounce rate, not-interested rate), and either writes .cold/proposed-diff.patch or applies it directly. Use 7+ days after /cold send when an experiment is active. Updates beliefs.md and decisions.md. Use when the user says "read the experiment", "/cold learn", "what did we learn", or "is the test done yet".
+description: Read the active experiment's per-variant results from FoxReach (inbox categorize-stats), check the bounce and not-interested guards, run a two-proportion z-test on interested-reply rate, and record the outcome. On a winner it updates beliefs.md and decisions.md, proposes a cold.md diff (or applies it once trust is earned) and tells the user how to promote the winning variant in the FoxReach app. Use once min_days_before_read have passed since /cold send, or when the user says "read the experiment", "what did we learn", "is the test done" or runs /cold learn.
 ---
 
 # cold-learn
 
-The autoresearch core. Reads variant stats, decides winner/inconclusive/extend, and proposes a `cold.md` diff under the trust ladder.
-
-## When to use
-
-- User has run `/cold send` and `>= protocol.min_days_before_read` days have passed
-- User says "read the experiment", "is the test done", "/cold learn"
-- A scheduled cron fires `/cold learn` (Sunday evening recommended)
+Decides winner, inconclusive, or extend for the active experiment, under the trust ladder.
 
 ## Inputs
 
-- `.cold/experiments/.active` — active experiment id
-- `.cold/experiments/<id>/protocol.md` — success criteria, arm specs
-- `.cold/last-send.json` — campaign + variant ids (from cold-send)
-- `.cold/trust.json` — auto-commit eligibility
-- `.cold/config.json` — guards thresholds
-- `cold.md` — file to potentially edit
+- `.cold/experiments/.active` and `.cold/experiments/<id>/protocol.md` (`design`, `step`, `variantIds` or `campaignIds`, thresholds)
+- `.cold/last-send.json` (`campaignId`, `sentAt`, `accountIds`)
+- `.cold/trust.json`, `.cold/config.json` (`guards.*`, `trust.*`, `experiments.autoAdvanceTier`)
+- `cold.md`
 - `FOXREACH_API_KEY`
 
-## Process
-
-### Step 1 — Verify experiment is ready to read
-
-```bash
-ACTIVE=$(cat .cold/experiments/.active 2>/dev/null)
-[ -z "$ACTIVE" ] && { echo "No active experiment. Run /cold experiment first."; exit 0; }
-
-PROTO=.cold/experiments/$ACTIVE/protocol.md
-SENT_AT=$(jq -r '.sentAt' .cold/last-send.json)
-MIN_DAYS=$(yq '.min_days_before_read' $PROTO)
-
-# Compute now() - sentAt in days; if < MIN_DAYS, stop
-```
-
-If not ready: print "Experiment needs N more days" and stop. Do NOT pull stats early — it pollutes intuition.
-
-### Step 2 — Pull stats
-
-```bash
-foxreach inbox categorize-stats \
-  --campaign $(jq -r '.campaignId' .cold/last-send.json) \
-  --group-by variant \
-  --json > .cold/experiments/$ACTIVE/results.json
-```
-
-Expected response shape (from the new endpoint shipped in foxreach `4ca5dce`):
-
-```json
-{
-  "data": {
-    "groups": [
-      { "key": "var_arm_a_statement", "sent": 100, "replied": 8,
-        "interested": 5, "not_interested": 2, "out_of_office": 1,
-        "bounce": 1, "uncategorized": 0 },
-      { "key": "var_arm_b_question", "sent": 100, "replied": 11,
-        "interested": 8, "not_interested": 2, "out_of_office": 1,
-        "bounce": 1, "uncategorized": 0 }
-    ]
-  }
-}
-```
-
-Match `key` against `.cold/last-send.json::variantIds` to identify which arm is which.
-
-### Step 3 — Verify sample size
-
-For each arm, `sent >= protocol.sample_size_per_arm`. If not:
-
-- Either extend the experiment (bump variant weights to keep sending) up to `max_extensions × 50%` of original sample
-- Or print "Need N more sends in arm_<x>" and stop
-
-### Step 4 — Compute metrics per arm
-
-```python
-interested_rate = interested / sent
-bounce_rate = bounce / sent
-not_interested_rate = not_interested / sent
-```
-
-### Step 5 — Check guards (HARD STOP if breached)
-
-If `bounce_rate > config.guards.bounceRateThreshold` for either arm:
-
-```bash
-# Pause the breaching variant
-foxreach variants update --campaign $CID --sequence $SEQ --variant $VID --json '{"weight": 0}'
-```
-
-Append guard breach to `.cold/decisions.md`. Print alert. Do NOT propose any cold.md changes — the experiment is invalid.
-
-If `not_interested_rate > config.guards.notInterestedRateThreshold`: warn but continue (the opener may still be salvageable; the test result is informative).
-
-### Step 6 — Run two-proportion z-test
-
-```python
-from math import sqrt
-from scipy.stats import norm  # or use a hardcoded Phi approximation
-
-p_pool = (interested_a + interested_b) / (sent_a + sent_b)
-se = sqrt(p_pool * (1 - p_pool) * (1/sent_a + 1/sent_b))
-z = (rate_a - rate_b) / se
-p_value = 2 * (1 - norm.cdf(abs(z)))
-
-delta_pp = (rate_a - rate_b) * 100
-margin = 1.96 * se * 100
-ci_95 = (delta_pp - margin, delta_pp + margin)
-```
-
-If scipy isn't available in the agent's Bash env, use a Phi approximation (Abramowitz & Stegun 7.1.26 — code in any stats reference).
-
-### Step 7 — Decide outcome
-
-| Condition | Outcome |
-|---|---|
-| `|delta_pp| < protocol.min_delta_pp` | Inconclusive |
-| `p_value > protocol.significance_level` | Inconclusive |
-| `lower_ci <= 0 AND upper_ci >= 0` (CI crosses zero) | Inconclusive |
-| All three pass + winner has higher interested_rate | **Winner declared** |
-
-### Step 8 — If inconclusive
-
-Append to `.cold/experiments/<ACTIVE>/decision.md`:
-
-```markdown
-# Decision — <ACTIVE>
-
-## Status: inconclusive
-## Read at: <YYYY-MM-DD>
-
-## Numbers
-- arm_a: 100 sent, 5 interested (5.0%)
-- arm_b: 100 sent, 8 interested (8.0%)
-- Delta: +3.0pp
-- p = 0.21
-- 95% CI: [-1.7, +7.7]
-
-## Why inconclusive
-- p > 0.05 (not significant)
-- CI crosses zero
-- More data needed
-
-## Next
-- Extend by 50% (50 more sends per arm), or
-- Declare inconclusive and move to next tier without changing cold.md
-```
-
-If extending: bump variant weights; do not advance tier; tell user to wait another min_days_before_read.
-
-### Step 9 — If winner
-
-Write `decision.md`:
-
-```markdown
-# Decision — <ACTIVE>
-
-## Status: winner
-## Read at: <YYYY-MM-DD>
-
-## Winner: arm_b_question
-## Numbers
-- arm_a_statement: 100 sent, 5 interested (5.0%)
-- arm_b_question:  100 sent, 8 interested (8.0%)
-- Delta: +3.0pp
-- p = 0.04
-- 95% CI: [+0.2, +5.8]
-
-## Proposed cold.md edit
-
-Replace the current `## Sequence` opener subject pattern with:
-- Question, < 8 words, ends with ?
-- Example: "Reply rate stuck under 2 percent?"
-
-## Updated belief
-
-> Tier 1 (subject): question-style subjects produce a +3.0pp lift in
-> interested-reply rate vs statement-style in <vertical>. CI [+0.2, +5.8],
-> n=200. Locked.
-```
-
-Update `.cold/beliefs.md` (append, don't overwrite):
-
-```markdown
-## Tier 1 — Subject
-- **Pattern**: Question, < 8 words, ends with ?
-- **Lift**: +3.0pp interested-reply rate
-- **Confidence**: 95% CI [+0.2, +5.8] (p=0.04)
-- **Sample**: n=200 (100 per arm)
-- **Source**: 2026-W18-subject-statement-vs-question
-- **Concluded**: 2026-04-29
-```
-
-Construct the `cold.md` diff (use `git diff`-style patch). Save to `.cold/proposed-diff.patch`.
-
-### Step 10 — Apply diff (trust ladder)
-
-Read `.cold/trust.json`:
-
-```json
-{ "approvedDiffStreak": 2, "autoCommit": false }
-```
-
-If `autoCommit: true`:
-
-```bash
-git apply .cold/proposed-diff.patch
-rm .cold/proposed-diff.patch
-echo "Auto-committed (streak: $STREAK)" >> .cold/decisions.md
-```
-
-If `autoCommit: false`:
-
-```
-Diff proposed at .cold/proposed-diff.patch
-Review:  cat .cold/proposed-diff.patch
-Accept:  git apply .cold/proposed-diff.patch && rm .cold/proposed-diff.patch
-Reject:  rm .cold/proposed-diff.patch
-
-Current trust streak: <streak>/<config.trust.autoCommitAfterApprovedStreak>.
-After <N> more approvals, diffs will auto-commit.
-```
-
-### Step 11 — Streak bookkeeping (runs on every invocation)
-
-Before doing anything else, check if a prior `proposed-diff.patch` exists from the last run:
+## Step 0: Streak bookkeeping (every run, first)
 
 ```bash
 PATCH=.cold/proposed-diff.patch
-COLD_HASH_PREV=$(jq -r '.coldMdHashAtPropose' .cold/trust.json 2>/dev/null)
-COLD_HASH_NOW=$(sha256sum cold.md | awk '{print $1}')
-
-if [ -f "$PATCH" ]; then
-  : # patch still pending, no streak change
-elif [ -n "$COLD_HASH_PREV" ] && [ "$COLD_HASH_PREV" != "$COLD_HASH_NOW" ]; then
-  # patch was applied -> streak += 1
-  jq '.approvedDiffStreak += 1' .cold/trust.json > /tmp/t && mv /tmp/t .cold/trust.json
-elif [ -n "$COLD_HASH_PREV" ] && [ "$COLD_HASH_PREV" = "$COLD_HASH_NOW" ]; then
-  # patch was rejected (deleted without applying) -> streak = 0
-  jq '.approvedDiffStreak = 0' .cold/trust.json > /tmp/t && mv /tmp/t .cold/trust.json
+PREV=$(jq -r '.coldMdHashAtPropose // empty' .cold/trust.json)
+NOW=$(shasum -a 256 cold.md | awk '{print $1}')
+if [ ! -f "$PATCH" ] && [ -n "$PREV" ]; then
+  if [ "$PREV" != "$NOW" ]; then F='.approvedDiffStreak += 1'   # patch applied
+  else F='.approvedDiffStreak = 0'; fi                          # patch rejected
+  jq "$F | del(.coldMdHashAtPropose)" .cold/trust.json > .cold/trust.tmp && mv .cold/trust.tmp .cold/trust.json
 fi
-
-# Unlock auto-commit if streak hit threshold
-THRESHOLD=$(jq -r '.trust.autoCommitAfterApprovedStreak' .cold/config.json)
-STREAK=$(jq -r '.approvedDiffStreak' .cold/trust.json)
-if [ "$STREAK" -ge "$THRESHOLD" ]; then
-  jq '.autoCommit = true' .cold/trust.json > /tmp/t && mv /tmp/t .cold/trust.json
-fi
+T=$(jq -r '.trust.autoCommitAfterApprovedStreak' .cold/config.json)
+S=$(jq -r '.approvedDiffStreak' .cold/trust.json)
+[ "$S" -ge "$T" ] && jq '.autoCommit = true' .cold/trust.json > .cold/trust.tmp && mv .cold/trust.tmp .cold/trust.json
 ```
 
-When proposing a new diff, snapshot the current cold.md hash:
+A patch still on disk means the last proposal is pending: no streak change.
+
+## Step 1: Ready to read?
+
+- No `.active`: "No active experiment. Run /cold experiment." Stop.
+- Variant design with `variantIds.control` or `variantIds.variant` null: "/cold send did not record the variant IDs. Run `foxreach sequences list --campaign <id> --json` and add them to the protocol." Stop.
+- `now - sentAt` below `min_days_before_read`: "Needs <n> more days." Stop. Never pull stats early; peeking biases the read.
+
+## Step 2: Pull stats
+
+Variant design (one campaign, variants on one step):
 
 ```bash
-jq --arg h "$(sha256sum cold.md | awk '{print $1}')" \
-   '.coldMdHashAtPropose = $h' .cold/trust.json > /tmp/t && mv /tmp/t .cold/trust.json
+foxreach inbox categorize-stats --campaign "$CID" --step "$STEP" --group-by variant \
+  --from "$SENT_AT" --to "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --json \
+  > .cold/experiments/$ID/results.json
 ```
 
-### Step 12 — Mark experiment complete + advance tier
+Two-campaign design: run it once per campaign in `campaignIds`, without `--step` and `--group-by` (the whole sequence is under test), and save both.
 
-If winner: clear `.cold/experiments/.active`. If `config.experiments.autoAdvanceTier == true`, bump `currentTier += 1` in config.
+The CLI prints:
 
-### Step 13 — Append to decisions.md
+```json
+{ "groups": [
+  { "key": "<variant id>", "sent": 0, "replied": 0, "interested": 0,
+    "not_interested": 0, "out_of_office": 0, "bounce": 0,
+    "unsubscribe": 0, "uncategorized": 0 }
+] }
+```
+
+- `key` is the variant ID (`--group-by variant`), or `"all"` when not grouped. Match keys to `protocol.variantIds`. A `null` key holds sends made before the variants existed; report its `sent` and leave it out of the test.
+- `replied` excludes bounce, warmup and unrelated mail. `bounce` counts bounce notices that reached the inbox and were categorized as bounces.
+- Replies count only when received inside `--from`/`--to`, and only after they are categorized.
+
+Curl fallback (the response is wrapped in `data`):
+
+```bash
+curl -sS "https://api.foxreach.io/api/v1/inbox/categorize-stats?campaignId=$CID&sequenceStep=$STEP&groupBy=variant&fromDate=$SENT_AT&toDate=$NOW_ISO" \
+  -H "X-API-Key: $FOXREACH_API_KEY" | jq '.data'
+```
+
+## Step 3: Data quality
+
+- **Uncategorized replies.** Any arm with `uncategorized > 0` undercounts interested replies. Tell the user to run `/cold triage` and rerun `/cold learn`. Continue only if they say so, and note it in the decision.
+- **Sample size.** Each arm needs `sent >= sample_size_per_arm`. Short: extend (Step 7).
+
+## Step 4: Guards
+
+Per arm: `bounce_rate = bounce / sent`, `not_interested_rate = not_interested / sent`. Also read `foxreach accounts health <id> --json` for each ID in `last-send.json.accountIds` and compute `bounce7d.bounced / bounce7d.sent`.
+
+- Any bounce rate above `guards.bounceRateThreshold`: the experiment is invalid. When `guards.autoPauseOnGuardBreach` is true, run `foxreach campaigns pause "$CID"`. Variant weights cannot go below 1 and cannot be changed through the API, so tell the user to remove the breaching variant in the app ("Remove A/B Test" reverts the step to the control) or fix the accounts. Append the breach to `.cold/decisions.md`. Propose no cold.md change. Stop.
+- `not_interested_rate` above `guards.notInterestedRateThreshold`: warn and continue; the result is still informative.
+
+## Step 5: Two-proportion z-test
+
+```python
+from math import sqrt, erf
+def phi(x): return 0.5 * (1 + erf(x / sqrt(2)))
+
+ra, rb = ia / na, ib / nb                    # interested / sent, a = control
+p = (ia + ib) / (na + nb)
+z = (rb - ra) / sqrt(p * (1 - p) * (1 / na + 1 / nb))
+p_value = 2 * (1 - phi(abs(z)))
+delta_pp = (rb - ra) * 100
+se = sqrt(ra * (1 - ra) / na + rb * (1 - rb) / nb) * 100
+ci = (delta_pp - 1.96 * se, delta_pp + 1.96 * se)
+```
+
+## Step 6: Decide
+
+| Condition | Outcome |
+|---|---|
+| `abs(delta_pp) < min_delta_pp` | inconclusive |
+| `p_value >= significance_level` | inconclusive |
+| CI contains 0 | inconclusive |
+| all three pass | winner = the arm with the higher interested rate |
+
+## Step 7: Inconclusive or extend
+
+Write `.cold/experiments/<id>/decision.md` with `Status: inconclusive`, the numbers per arm (sent, interested, rate), delta, p, CI, the reason, and the next move:
+
+- **Extend** while `max_extensions` is not used up: raise the sample by `extension_step_pct`. The campaign keeps sending to its remaining leads; if it has none left, bring more with `/cold leads` and add them with `foxreach campaigns add-leads "$CID" --lead-ids <ids>` (500 per call). Record the extension in the protocol and wait another `min_days_before_read`.
+- **Close** once extensions are used up: mark inconclusive, change nothing in cold.md, and say the next tier can start.
+
+## Step 8: Winner
+
+`decision.md`: `Status: winner`, the winning arm, the numbers, the proposed cold.md edit, and the updated belief. Append to `.cold/beliefs.md`:
 
 ```markdown
-## 2026-04-29 — Tier 1 / subject
-
-**Experiment**: 2026-W18-subject-statement-vs-question
-**Outcome**: winner = arm_b_question
-**Numbers**: 8.0% vs 5.0% interested (+3.0pp, p=0.04, CI [+0.2, +5.8])
-**Status**: pending review (or: applied automatically — streak 3/3)
-**Next**: Tier 2 (opener)
+## Tier <N>: <variable>
+- Pattern: <winning pattern>
+- Lift: <delta_pp>pp interested-reply rate (95% CI [<lo>, <hi>], p=<p>)
+- Sample: n=<na + nb>
+- Source: <experiment id>, concluded <date>
 ```
 
-## Fallback contract
+Write the cold.md change as a unified diff to `.cold/proposed-diff.patch` and snapshot the hash:
 
-Same CLI → curl → docs pattern as cold-leads/cold-send. The new `inbox categorize-stats` endpoint:
+```bash
+jq --arg h "$(shasum -a 256 cold.md | awk '{print $1}')" '.coldMdHashAtPropose = $h' \
+  .cold/trust.json > .cold/trust.tmp && mv .cold/trust.tmp .cold/trust.json
+```
 
-- Cached OpenAPI: `jq '.paths."/inbox/categorize-stats"' .cold/docs-cache/foxreach-openapi.json`
-- Curl: `curl -H "X-API-Key: $FOXREACH_API_KEY" "https://api.foxreach.io/api/v1/inbox/categorize-stats?campaignId=<id>&groupBy=variant"`
-- Docs: (Mintlify page coming once endpoint is documented; for now, OpenAPI spec is the source of truth)
+**Trust ladder.** `trust.autoCommit` true: `git apply .cold/proposed-diff.patch && rm .cold/proposed-diff.patch` and log "applied automatically, streak <s>". Otherwise:
+
+```
+Proposed: .cold/proposed-diff.patch
+  Review: cat .cold/proposed-diff.patch
+  Accept: git apply .cold/proposed-diff.patch && rm .cold/proposed-diff.patch
+  Reject: rm .cold/proposed-diff.patch
+Trust streak <s>/<autoCommitAfterApprovedStreak>.
+```
+
+**Promote the winner in FoxReach.** Editing variants is a web-app action; print:
+
+```
+Promote <arm> in campaign "<name>" (guide: https://www.foxreach.io/docs/product/ab-testing)
+  Keep a small test running: pause, set the winner's weight to 9 and the other to 1, resume.
+  Or end the test: pause, copy the winner's subject and body, click "Remove A/B Test"
+  (this reverts the step to the original control), paste the winning copy into the step, save, resume.
+```
+
+Pausing, resuming and writing the winning copy back to the step (after the test is removed) can go through the API on request: `foxreach campaigns pause "$CID"`, `foxreach sequences update --campaign "$CID" --sequence <step id> --subject "..." --body "..."`, `foxreach campaigns resume "$CID"`. "Remove A/B Test" itself is not available in the public API. Two-campaign design: keep the winning setting for future campaigns; offer to pause the losing campaign.
+
+## Step 9: Close out
+
+On winner or a closed inconclusive: clear `.cold/experiments/.active`. If `experiments.autoAdvanceTier` is true, raise `currentTier` by 1. Append to `.cold/decisions.md`:
+
+```markdown
+## <date>: tier <N> / <variable>
+Experiment: <id>
+Outcome: <winner = arm | inconclusive>
+Numbers: <rb>% vs <ra>% interested (<delta>pp, p=<p>, CI [<lo>, <hi>])
+Status: <pending review | applied automatically, streak <s>>
+Next: <next tier or extension>
+```
 
 ## Constraints
 
-- Never read stats before `min_days_before_read`. The agent MUST refuse to peek early.
-- Never auto-commit if `trust.autoCommit == false`. Always write to `.cold/proposed-diff.patch` first.
-- Hard guard on bounce rate > 5% — pause the breaching variant immediately, do NOT propose any cold.md changes.
-- One experiment at a time. If `.cold/experiments/.active` is missing, surface "no active experiment" and stop.
+- Never read before `min_days_before_read`.
+- Never apply a diff while `trust.autoCommit` is false; write the patch.
+- A bounce guard breach invalidates the experiment: pause, no cold.md change.
+- One experiment at a time.
 
 ## Output
 
-- `.cold/experiments/<id>/results.json`
-- `.cold/experiments/<id>/decision.md`
-- `.cold/beliefs.md` (updated)
-- `.cold/decisions.md` (appended)
-- `.cold/proposed-diff.patch` (if winner + not auto-commit)
-- `.cold/trust.json` (streak + autoCommit fields updated)
+- `.cold/experiments/<id>/results.json`, `decision.md`
+- `.cold/beliefs.md`, `.cold/decisions.md` (appended)
+- `.cold/proposed-diff.patch` (winner, trust not yet earned)
+- `.cold/trust.json`
 
 ## References
 
-- Spec: https://cold.md
-- categorize-stats endpoint: `GET /api/v1/inbox/categorize-stats?groupBy=variant` (foxreach commit `4ca5dce`)
-- Two-proportion z-test: standard frequentist approach; v0.2 may upgrade to Bayesian Beta posteriors
+- A/B testing in FoxReach: https://www.foxreach.io/docs/product/ab-testing
+- FoxReach CLI: https://www.foxreach.io/docs/sdks/cli
+- Public API spec: https://api.foxreach.io/openapi-public.json

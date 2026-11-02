@@ -1,6 +1,6 @@
 ---
 name: cold-icp
-description: Build your Ideal Customer Profile (ICP) and write it to icp.md for the rest of the cold.md suite to consume. Use when the user says "build my ICP", "define my target audience", "who should I sell to", "analyze my website for ICP", or when starting a new cold outreach project. Can bootstrap from a URL (scrape homepage, about, pricing, case studies) or run an interactive Q&A. Writes a structured icp.md that cold-leads, cold-draft, and cold-send all read.
+description: Build your Ideal Customer Profile (ICP) and write it to icp.md for the rest of the cold.md suite to consume. Use when the user says "build my ICP", "define my target audience", "who should I sell to", "analyze my website for ICP", or when starting a new cold outreach project. Can bootstrap from a URL (scrape homepage, about, pricing, case studies) or run an interactive Q&A. Validates the draft with web research and, when a FoxReach key is set, an optional free Lead Finder count. Writes a structured icp.md that cold-leads, cold-draft, and cold-send all read.
 ---
 
 # cold-icp
@@ -97,46 +97,64 @@ A lead passes if:
 [Any context, reasoning, edge cases]
 ```
 
-## Step 3 — Web research validation (autoresearch v0.2+)
+## Web research validation
 
-Read `.cold/config.json`. If `research.policyLevelEnabled` is `true` (default), run up to `maxQueriesPerInvocation` (default 5) WebSearch queries to validate the drafted ICP **before** writing it. The goal: catch a niche that's too narrow, titles that don't really exist at scale, or disqualifiers that aren't actually meaningful.
+Read `.cold/config.json`. If `research.policyLevelEnabled` is `true` (default), run up to `research.maxQueriesPerInvocation` (default 5) WebSearch queries to validate the drafted ICP **before** writing it. The goal: catch a niche that is too narrow, titles that do not exist at scale, or disqualifiers that do not mean anything.
 
-If `.cold/config.json` doesn't exist (user skipped `/cold init`), skip this step gracefully — the skill still works without it.
+If `.cold/config.json` does not exist (the user skipped `/cold init`), skip this step; the skill still works without it.
 
 ### Queries to run
 
-For each query, capture: query string, top 3 result titles + URLs, a 1-sentence "what this tells us".
+For each query, capture: query string, top 3 result titles + URLs, and one sentence on what it tells us.
 
-1. **Cluster size — competitor companies in the vertical**
+1. **Cluster size: companies in the vertical**
    `<vertical> companies <region>` (e.g. `"B2B SaaS warmup tools US"`)
-   Tells us: is the niche big enough? <3 results = niche too narrow.
+   Tells us: is the niche big enough? Fewer than 3 relevant results suggests it is too narrow.
 
 2. **Title prevalence**
    `"<title>" jobs <vertical>` (e.g. `"Head of Demand Gen" jobs B2B SaaS`)
    Tells us: is this title common in this niche, or rare?
 
 3. **Pain language in the wild**
-   `"<vertical> <pain>" reddit OR forum site:reddit.com`
-   Surfaces real complaints — borrow phrasing for the offer.
+   `"<vertical> <pain>" site:reddit.com`
+   Surfaces real complaints; borrow the phrasing for the offer.
 
 4. **Case study patterns**
-   `case study <vertical> <pain> 2026`
-   Finds proof points the user can cite.
+   `case study <vertical> <pain>`
+   Finds proof formats the user can cite.
 
 5. **Disqualifier validation**
    `"<disqualifier-trait>" <vertical>`
-   Confirms the disqualifier is meaningful (i.e. that segment really exists and is wrong-fit).
+   Confirms the disqualified segment exists and really is a poor fit.
+
+### Optional: size check in FoxReach Lead Finder
+
+Only when `FOXREACH_API_KEY` is set and the workspace has Lead Finder (paid plans). It is free: `count` returns a number and never spends reveal credits or search budget. Never run `search`, `reveal` or `add-to-leads` from this skill.
+
+```bash
+foxreach lead-finder filter-options --json        # valid filter keys and values
+foxreach lead-finder count --json \
+  --filters '{"jobTitles":["Head of Demand Generation"],"countries":["US"],"keywords":["B2B SaaS"]}'
+```
+
+Build the filters from the drafted `## Title signals` and `## Company signals`, using only keys `filter-options` lists (the API rejects unknown keys; reference: https://www.foxreach.io/docs/api-reference/lead-finder/overview). The response carries `total`. Report it as-is:
+
+- `total` is 0: the ICP is empty as written; loosen the tightest filter and say which.
+- `total` is very large for a narrow offer: the ICP is probably too loose; suggest one more qualifier.
+
+If the command errors (no key, free plan, provider unavailable), skip it and say so in one line.
 
 ### Save findings
 
 Write to `.cold/research/icp-validation-<YYYY-MM-DD>.md`:
 
 ```markdown
-# ICP validation — <YYYY-MM-DD>
+# ICP validation - <YYYY-MM-DD>
 
 ## Source
 - ICP: ./icp.md
-- Queries run: 5 of 5
+- Queries run: <n> of <max>
+- Lead Finder count: <total, or "not run">
 
 ## Findings
 
@@ -149,28 +167,28 @@ Write to `.cold/research/icp-validation-<YYYY-MM-DD>.md`:
 ...
 
 ## Risks
-- [List anything the research flagged: niche too narrow, title rare, etc.]
+- [Anything the research flagged: niche too narrow, title rare, etc.]
 
 ## Suggested icp.md edits
-- [Concrete proposed changes; user accepts or rejects]
+- [Concrete proposed changes; the user accepts or rejects]
 ```
 
 ### Surface to user
 
-Print a 5-line summary:
+Print a short summary, one line per check, using only what the searches returned:
 
 ```
-ICP validation complete (5 queries):
-  ✓ Cluster size: ~12 competitor companies in the niche (healthy)
-  ✓ Title "Head of Demand Gen" appears in 1,200+ recent job posts
-  ✓ Pain language: "Smartlead bounces" mentioned in r/coldemail
-  ⚠ Disqualifier "agencies" — niche has many agency consumers; consider softening
-  ✓ Found 3 case-study patterns for proof points
+ICP validation (<n> queries):
+  OK    Cluster size: <what the results showed>
+  OK    Title "<title>": <what the results showed>
+  OK    Pain language: "<phrase>" seen in <source>
+  WARN  Disqualifier "<trait>": <why it may be too broad>
+  OK    Lead Finder count: <total> people match
 
 Apply suggested edits to icp.md? (Y/n/show)
 ```
 
-If user accepts: edit icp.md. If shows: print the diff. If no: leave as-is, save findings only.
+If the user accepts: edit icp.md. If "show": print the diff. If no: leave icp.md as-is and keep the findings file.
 
 ## Validation
 
@@ -192,4 +210,4 @@ After writing `icp.md`:
 
 - Full cold.md suite: https://cold.md
 - The separate `cold.md` file defines *how* you talk; this `icp.md` defines *who* you talk to.
-- Example: https://github.com/concaption/cold-md/blob/main/examples/foxreach.icp.md (coming soon)
+- Example cold.md: https://github.com/foxreach/cold-md/blob/main/examples/foxreach.cold.md

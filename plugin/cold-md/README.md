@@ -1,57 +1,45 @@
-# cold.md - Claude Code plugin
+# cold-md - Claude Code plugin
 
-The full [cold.md](https://cold.md) suite. Six skills that run your cold outreach end-to-end, backed by FoxReach.
-
-## What you get
-
-| # | Skill | Purpose | v0 Status | Requires |
-|---|---|---|---|---|
-| 1 | `cold-icp` | Build `icp.md` from a URL or Q&A | **Live** | Nothing |
-| 2 | `cold-leads` | Source leads matching `icp.md` into `leads.csv` | Stub (v0.2) | FoxReach API key |
-| 3 | `cold-draft` | Draft openers, bumps, breakups from `cold.md` | **Live** | Nothing |
-| 4 | `cold-send` | Queue campaign via FoxReach with safety checks | Stub (v0.2) | FoxReach API key |
-| 5 | `cold-triage` | Sort inbound replies, draft responses | Stub (v0.2) | FoxReach API key |
-| 6 | `cold-report` | Daily/weekly digest of deliverability + bookings | **Live** | FoxReach API key |
-
-Plus the `/cold` slash command that routes to the right skill.
+The [cold.md](https://cold.md) suite: eleven skills and one `/cold` command that run cold outreach end to end from a `cold.md` file in your repo, and propose edits to that file from A/B results. Sending runs on [FoxReach](https://www.foxreach.io).
 
 ## Install
 
-```bash
-curl -fsSL https://cold.md/install | bash
+Inside Claude Code:
+
+```
+/plugin marketplace add foxreach/cold-md
+/plugin install cold-md@cold-md
 ```
 
-That installs the plugin and every skill. By default the FoxReach-backed skills are included (set `FOXREACH_API_KEY` to activate them). Pass `--skills-only` to skip the plugin and get the free skills only.
+Or from a terminal: `curl -fsSL https://cold.md/install | bash`
 
-Manual install:
-
-```bash
-git clone https://github.com/concaption/cold-md ~/.claude/plugins/cold-md
-```
-
-## Configure
+The sending skills need the FoxReach CLI and an API key (Settings > API Keys in FoxReach):
 
 ```bash
-export FOXREACH_API_KEY=fr_...
+pip install foxreach-cli
+export FOXREACH_API_KEY=otr_...
 ```
 
-Free tier: https://foxreach.io/signup.
+Then, in your repo: `/cold init`.
 
-## The loop
+## Skills
 
-```bash
-/cold icp https://your-company.com       # Step 1: who
-/cold leads --count 100                   # Step 2: prospects (v0.2)
-/cold draft Jane Smith, CEO at Acme       # Step 3: draft
-/cold send ./leads.csv                    # Step 4: launch (v0.2)
-/cold triage                              # Step 5: sort replies (v0.2)
-/cold report weekly                       # Step 6: digest
-```
+| Skill | What it does | FoxReach key |
+|---|---|---|
+| `cold-icp` | Builds `icp.md` from a URL or Q&A, validated by web search | optional |
+| `cold-offer` | Competitor and market research, writes `offer.md` | no |
+| `cold-leads` | CSV import or Lead Finder search, ICP scoring, verification, import | yes |
+| `cold-research` | Per-lead research bundles for personalization experiments | no |
+| `cold-draft` | Openers, bumps, breakups from `cold.md`; lint | no |
+| `cold-send` | Campaign creation with pre-flight checks | yes |
+| `cold-experiment` | Next A/B from the variable ladder | no |
+| `cold-learn` | Per-variant stats, z-test, proposed `cold.md` diff | yes |
+| `cold-triage` | Categorizes replies, drafts answers, sends on approval | yes |
+| `cold-status` | Beliefs, running experiments, pending diffs | no |
+| `cold-report` | Daily/weekly digest; `/cold audit <domain>` | yes |
 
-## Why a plugin, not a single skill?
-
-The other Claude Code cold-email skills on the market (Corey Haines, MCP Market, gtm-agents) all do step 3 - drafting. `cold.md` is the only plugin that runs the whole loop. That's the point.
+Run `/cold` with no arguments for the full command list.
 
 ## License
 
-MIT for code, CC-BY-4.0 for the spec at [cold.md](https://cold.md).
+MIT for the plugin, CC-BY-4.0 for the [spec](https://github.com/foxreach/cold-md/blob/main/spec/cold-md-v0.md).

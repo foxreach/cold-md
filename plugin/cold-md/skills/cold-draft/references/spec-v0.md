@@ -98,7 +98,7 @@ A bulleted list of facts the agent may cite. Each line should stand alone as a c
 - 40+ B2B SaaS clients in 2024-2026
 - Average 8.4% reply rate across warmed domains
 - Built the warmup engine that Plastix Marketing uses across 12 client domains
-- Featured in [case study on domain reputation](https://foxreach.io/blog/deliverability)
+- Featured in [case study on domain reputation](https://example.com/blog/deliverability)
 ```
 
 Agents must only cite from this list. No hallucinated numbers, no invented testimonials.
@@ -142,7 +142,7 @@ layer: reply triage, booked-calls dashboard, multi-domain warmup. Want a
 > "Not interested."
 
 No problem. If you change your mind, the deliverability audit is free and
-takes 10 minutes - https://foxreach.io/audit. Best of luck.
+takes 10 minutes - https://example.com/audit. Best of luck.
 ```
 
 When replying to inbound, agents match the objection first before generating new content.

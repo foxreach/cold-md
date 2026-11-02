@@ -2,8 +2,8 @@
 const nextConfig = {
   async redirects() {
     return [
-      { source: '/github', destination: 'https://github.com/concaption/cold-md', permanent: false },
-      { source: '/spec', destination: 'https://github.com/concaption/cold-md/blob/main/spec/cold-md-v0.md', permanent: false },
+      { source: '/github', destination: 'https://github.com/foxreach/cold-md', permanent: false },
+      { source: '/spec', destination: 'https://github.com/foxreach/cold-md/blob/main/spec/cold-md-v0.md', permanent: false },
     ]
   },
   async rewrites() {

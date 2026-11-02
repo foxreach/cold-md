@@ -3,9 +3,9 @@ import './globals.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://cold.md'),
-  title: 'cold.md - The Claude Code plugin that runs your cold outreach',
+  title: 'cold.md - Cold outreach that improves itself, as a Claude Code plugin',
   description:
-    'Six Claude Code skills for cold outreach: ICP builder, lead sourcing, drafter, sender, reply triage, reporter. Reads a portable cold.md spec. Backed by FoxReach.',
+    'An open spec and a Claude Code plugin: eleven skills and one /cold command for ICP, lead sourcing, verification, drafting, sending, A/B experiments that rewrite your cold.md, reply triage and reporting. Sends through FoxReach.',
   keywords: [
     'cold.md',
     'claude code cold email',
@@ -16,13 +16,14 @@ export const metadata: Metadata = {
     'autonomous SDR claude',
     'cold email spec',
     'cold email markdown',
-    'LangChain cold email',
+    'cold email A/B testing',
+    'autoresearch cold email',
     'FoxReach',
   ],
   openGraph: {
-    title: 'cold.md - Your cold outreach, in one file',
+    title: 'cold.md - Cold outreach that improves itself',
     description:
-      'Open spec + free Claude Code skill. The portable, executable, vendor-neutral source of truth for your outbound.',
+      'One markdown file defines your outbound. Eleven Claude Code skills run it, test it, and propose edits to it from real reply data.',
     url: 'https://cold.md',
     siteName: 'cold.md',
     type: 'website',
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'cold.md',
-    description: 'One markdown file that runs your cold outreach.',
+    description: 'Cold outreach that improves itself. Open spec + Claude Code plugin.',
   },
   robots: { index: true, follow: true },
   alternates: { canonical: 'https://cold.md' },

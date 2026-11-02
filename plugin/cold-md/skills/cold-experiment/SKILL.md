@@ -1,194 +1,169 @@
 ---
 name: cold-experiment
-description: Design the next A/B experiment for the autoresearch loop. Reads the current tier from .cold/config.json, picks the variable to test, drafts arm specs (e.g. statement vs. question subject lines), declares sample size + success criteria, and writes a protocol to .cold/experiments/. Use after /cold offer and before /cold draft. The experiment protocol is what cold-draft reads to generate variant pairs. Use when the user says "design the next experiment", "what should we test next", "set up the A/B", or "/cold experiment".
+description: Design the next A/B experiment in the cold.md loop. Reads the current tier, picks the one variable to test, writes the control and variant copy, sample size, guards and decision rule into a protocol under .cold/experiments/, and marks it active for /cold draft, /cold send and /cold learn. Use after /cold leads and before /cold draft, or when the user says "design the next experiment", "what should we test next", "set up the A/B" or runs /cold experiment.
 ---
 
 # cold-experiment
 
-Step 5 of the cold.md autoresearch suite — designs the next experiment.
+Designs one single-variable experiment at a time. It writes files only; it calls no API.
 
 ## When to use
 
-- User has run `/cold init` (.cold/config.json exists)
-- User has at least `cold.md` and `icp.md` populated
-- User says "design the next experiment", "what should we test", "/cold experiment"
-- The previous experiment has either declared a winner OR no experiment is active yet
+- `.cold/config.json` exists and `cold.md` + `icp.md` are filled in
+- No experiment is active, or the active one has been concluded by `/cold learn`
 
 ## Inputs
 
-- `.cold/config.json` — `experiments.currentTier`, sample sizes, etc.
-- `.cold/beliefs.md` — current best-known patterns (informs whether tier prereqs are met)
-- `cold.md` — current value, voice (informs arm bounds — variants must respect ## Banned and ## Voice)
+- `.cold/config.json`: `experiments.currentTier`, `minSamplePerVariant`, `minDaysBeforeRead`, `significanceLevel`; `guards.*`
+- `.cold/beliefs.md`: concluded winners (tier prerequisites)
+- `cold.md`: current `## Sequence` copy (the control), `## Voice`, `## Banned`
+- `.cold/last-import.json` (optional): lead count, provider split
 
-## Process
+## Step 1: Tier and prerequisites
 
-### Step 1 — Determine current tier
-
-Read `experiments.currentTier` from `.cold/config.json` (default 1).
-
-### Step 2 — Verify tier prerequisites
-
-If `currentTier > 1`, the previous tier must have a stable winner in `.cold/beliefs.md`. A "stable winner" is a `decision.md` with status `winner` and `applied: true` for that variable.
-
-If prerequisites not met:
+Read `experiments.currentTier` (default 1). For tier > 1, `.cold/beliefs.md` must hold a stable winner for the previous tier (a `decision.md` with `Status: winner`, applied to cold.md). If not:
 
 ```
-Tier <N> requires Tier <N-1> to have a stable winner first.
-Current state: <whatever beliefs.md shows>.
-Either run `/cold experiment` against the existing active experiment, or
-manually set experiments.currentTier in .cold/config.json to override.
+Tier <N> needs a stable winner at tier <N-1> first.
+Current state: <what beliefs.md shows>.
+Conclude the active experiment with /cold learn, or set experiments.currentTier
+in .cold/config.json to override.
 ```
 
 Stop.
 
-### Step 3 — Pick the variable for this tier
+## Step 2: Pick the variable
 
-| Tier | Variable | Default arm patterns |
-|---|---|---|
-| 1 | `subject` | `statement` vs `question` (or `statement` vs `number-led`) |
-| 2 | `opener` | `compliment` vs `observation` vs `direct-ask` (pick 2) |
-| 3 | `cta` | `calendar-link` vs `reply-to-confirm` vs `low-friction-yes-no` (pick 2) |
-| 4 | `cadence` | `3-day` vs `5-day` vs `7-day` between bumps (pick 2) |
-| 5 | `tone` | `casual` vs `formal` (manual unlock only — high risk) |
+| Tier | Variable | Arms (pick 2) | Design | Min sample per arm | Min days |
+|---|---|---|---|---|---|
+| 1 | `subject` | statement / question / number-led | variant | 100 | 7 |
+| 2 | `opener` (lines 1-2) | compliment / observation / direct-ask | variant | 150 | 10 |
+| 3 | `cta` | calendar-link / reply-to-confirm / low-friction yes-no | variant | 200 | 14 |
+| 4 | `cadence` | days between steps, e.g. 3 vs 5 | two-campaign | 300 | 21 |
+| 4 | `esp-matching` | provider matching on vs off | two-campaign | 300 | 21 |
+| 5 | `tone` | casual / formal | variant | config value | 30 |
 
-For Tier 5: refuse to advance unless user passes `--allow-tier-5`. Print a warning about voice changes affecting the brand.
+- Sample size per arm = the larger of `experiments.minSamplePerVariant` and the tier minimum (the ladder in `spec/2026-04-28-autoresearch-design.md`). Min days = the larger of `experiments.minDaysBeforeRead` and the tier minimum.
+- **variant** design: one campaign, one step gets FoxReach variants A (control) and B (variant), split 50/50 by weight. Variants carry their own subject and body only.
+- **two-campaign** design: delays and provider matching are campaign or step settings, not variant settings, so they cannot be A/B variants. The test runs as two campaigns that differ only in that setting, with leads split randomly in half. It costs twice the setup, so it sits late on the ladder.
+- `esp-matching` only makes sense when the senders include both Google and Microsoft mailboxes and the leads include both Google and Microsoft recipients (`foxreach campaigns esp-mix` on the last campaign, or `last-import.json.providers`). Otherwise there is nothing to match: offer `cadence` instead.
+- Tier 5 changes the brand voice. Refuse unless the user passes `--allow-tier-5`, and say why.
+- At tier 4 pick one of `cadence` or `esp-matching` with the user; the other stays for a later run.
 
-### Step 4 — Draft 2 arm specs
+Check the lead count: two arms need `2 x sample size` leads in the campaign. If `last-import.json` has fewer, say how many more `/cold leads` must bring in.
 
-For tier 1 (subject), example output:
+## Step 3: Experiment id
+
+`<YYYY>-W<ISO week>-<variable>-<arm-a-short>-vs-<arm-b-short>`, for example `2026-W45-subject-statement-vs-question`.
+
+## Step 4: Write the protocol
+
+`.cold/experiments/<id>/protocol.md`:
 
 ```yaml
-# .cold/experiments/<id>/protocol.md
 ---
-id: 2026-W18-subject-statement-vs-question
-created: 2026-04-29
+id: 2026-W45-subject-statement-vs-question
+created: 2026-11-03
 variable: subject
+design: variant              # variant | two-campaign
+step: 1                      # the sequence step under test (step numbers start at 1)
 hypothesis: |
-  Question-style subjects will produce a higher interested-reply rate
-  than statement-style subjects in the <vertical> niche, because <reason>.
+  Question subjects will get a higher interested-reply rate than statement
+  subjects for <ICP audience>, because <reason from icp.md pain signals>.
 
 arms:
-  - id: arm_a_statement
-    label: Statement
-    pattern: |
-      Declarative subject, < 8 words, ends without punctuation.
-    example: 5x your reply rate without burning your domain
-  - id: arm_b_question
-    label: Question
-    pattern: |
-      Question subject, < 8 words, ends with ?
-    example: Reply rate stuck under 2 percent?
+  - id: arm_a_statement      # control, FoxReach variant A
+    role: control
+    pattern: Declarative, under 8 words, no question mark
+  - id: arm_b_question       # FoxReach variant B
+    role: variant
+    pattern: Question, under 8 words, ends with ?
 
-sample_size_per_arm: 100        # from config.experiments.minSamplePerVariant
-min_days_before_read: 7         # from config.experiments.minDaysBeforeRead
-significance_level: 0.05
-min_delta_pp: 2                 # minimum |delta| in percentage points
+control:                     # current cold.md copy for this step, verbatim
+  subject: "<subject>"
+  body: |
+    <body>
+variant:                     # same copy, only the tested element changed
+  subject: "<subject>"
+  body: |
+    <body>
+
+sample_size_per_arm: 100
+min_days_before_read: 7
+significance_level: 0.05     # experiments.significanceLevel
+min_delta_pp: 2              # minimum absolute lift, percentage points
 
 guard:
-  bounce_rate_max: 0.05         # from config.guards.bounceRateThreshold
-  not_interested_rate_max: 0.30 # from config.guards.notInterestedRateThreshold
+  bounce_rate_max: 0.05          # guards.bounceRateThreshold
+  not_interested_rate_max: 0.30  # guards.notInterestedRateThreshold
 
 success_criteria:
-  test: two-proportion z-test on interested-reply rate
-  alpha: 0.05
+  metric: interested replies / sent, per arm
+  test: two-proportion z-test
   decision_rule: |
-    Winner declared when:
-      |delta| > min_delta_pp
-      AND p < alpha
-      AND lower bound of 95% CI excludes zero
+    Winner when |delta| >= min_delta_pp AND p < significance_level
+    AND the 95% CI of the delta excludes zero.
 
 extension_policy:
-  max_extensions: 2             # extend sample by 50% up to 3x cap
+  max_extensions: 2
   extension_step_pct: 50
 
-advance_tier_on_winner: false   # cold-learn will not auto-advance; user must opt in
+# Filled by /cold send. Never fill these by hand or by guess.
+campaignId: null
+campaignIds: []              # two-campaign design: [control campaign, variant campaign]
+variantIds: { control: null, variant: null }
+variantLabels: { control: A, variant: B }
 ---
-
-## Hypothesis (prose)
-
-In the <vertical> niche, prospects in <ICP audience> are more likely to
-reply with intent ("interested") to a question subject than to a statement
-subject because [reasoning grounded in icp.md pain signals + research].
-
-## Arms (full prose)
-
-### arm_a_statement
-- Subject pattern: declarative, < 8 words, no question mark
-- Example: "5x your reply rate without burning your domain"
-- Why this might win: clear value claim, reads like a competitor positioning
-
-### arm_b_question
-- Subject pattern: question, < 8 words, ends with ?
-- Example: "Reply rate stuck under 2 percent?"
-- Why this might win: pattern-interrupt, mirrors prospect's internal monologue
-
-## What's held constant
-- Body
-- CTA
-- Send time
-- Sender accounts
-- Cadence
-- Tone
-
-## How cold-draft reads this
-For each lead in `.cold/import.csv`, generate two emails — same body, same
-CTA, same everything except the subject line, which matches the arm's
-pattern. Output to `.cold/drafts/<campaignId>/arm_a_statement/<leadId>.md`
-and `.cold/drafts/<campaignId>/arm_b_question/<leadId>.md`.
 ```
 
-### Step 5 — Compute experiment id
+For a `two-campaign` design, `control` and `variant` hold the setting instead of copy (for example `delayDays: [0, 3, 3]` vs `[0, 5, 5]`, or `espMatching: false` vs `true`), and the copy is identical in both campaigns.
 
-Format: `<YYYY>-W<week>-<variable>-<arm-a-short>-vs-<arm-b-short>`
+Below the frontmatter, in prose:
 
-Example: `2026-W18-subject-statement-vs-question`
+- **Hypothesis**, grounded in `icp.md` and any `.cold/research/` findings.
+- **Arms**: the pattern, the example copy, and why each might win.
+- **Held constant**: everything except the variable (body, CTA, send window, accounts, cadence, tone, as applicable).
+- **How the copy reaches FoxReach**: `/cold draft` refines the control and variant copy within the arm patterns. `/cold send` creates the step with the control copy through the API, then prints the variant copy for the user to paste into variant B in the app (the public API cannot create variants), reads back both variant IDs and writes them into this file.
 
-Use the ISO 8601 week number based on today's date.
+Both arms must respect `cold.md ## Voice` and `## Banned`.
 
-### Step 6 — Write the protocol
+## Step 5: Mark active
+
+If `.cold/experiments/.active` already names an experiment without a `decision.md`, ask: "Experiment `<old-id>` is still running. Conclude it with /cold learn first. Override? (y/N)". Then:
 
 ```bash
 mkdir -p .cold/experiments/<id>
-# Write the YAML+prose to .cold/experiments/<id>/protocol.md
-```
-
-### Step 7 — Mark active
-
-```bash
 echo <id> > .cold/experiments/.active
 ```
 
-If a previous experiment was active and not yet concluded, ask the user first: "An experiment is already in flight (`<old-id>`). Conclude it via /cold learn before designing a new one. Override? (y/N)"
-
-### Step 8 — Print summary
+## Step 6: Summary
 
 ```
-Experiment designed: 2026-W18-subject-statement-vs-question
-  Variable: subject pattern
-  Arms: Statement vs. Question
-  Sample size: 100 leads per arm (200 total sends)
-  Decision in: 7 days minimum
-  Statistical test: two-proportion z-test, alpha=0.05, min delta 2pp
-  Guards: bounce <5%, not-interested <30%
+Experiment: <id>
+  Variable: <variable> (tier <N>), design: <variant|two-campaign>
+  Arms: <arm a> (control) vs <arm b>
+  Sample: <n> sends per arm, read after <d> days
+  Test: two-proportion z-test, alpha <a>, min lift <pp>pp
+  Guards: bounce under <x>%, not-interested under <y>%
+  Leads needed: <2 x n> (have <m>)
 
-Next: /cold draft (generates variant pairs from this protocol)
+Next: /cold draft, then /cold send
 ```
 
 ## Constraints
 
-- Only **one** active experiment at a time. Concurrent experiments confound results.
-- Only **one** variable per experiment (single-factor only in v0).
-- Tier ladder is strict — no skipping unless user manually overrides `currentTier` in config.
-- Tier 5 (voice) requires explicit `--allow-tier-5` flag.
-- Arms must respect `cold.md ## Voice` and `## Banned`.
+- One active experiment at a time; concurrent tests confound each other.
+- One variable per experiment, two arms.
+- The ladder is strict; skipping a tier needs a manual `currentTier` override.
+- Tier 5 needs `--allow-tier-5`.
+- Variant IDs come only from `foxreach sequences list` output, written by `/cold send`.
 
 ## Output
 
 - `.cold/experiments/<id>/protocol.md`
-- `.cold/experiments/.active` (one-line file containing `<id>`)
+- `.cold/experiments/.active`
 
 ## References
 
-- Spec: https://cold.md
-- Statistical decision rule: see `.cold/experiments/<id>/protocol.md` `success_criteria` block
-- cold-learn (consumes this output): `/cold learn` after the min-days window
+- A/B testing in FoxReach: https://www.foxreach.io/docs/product/ab-testing
+- `/cold learn` consumes the protocol after `min_days_before_read`

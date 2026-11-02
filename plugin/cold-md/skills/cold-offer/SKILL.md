@@ -16,19 +16,19 @@ Step 1.5 of the cold.md autoresearch suite. After ICP, refines the offer.
 
 ## Inputs
 
-- `./icp.md` — must exist; run `/cold icp` first if missing
-- `./cold.md` — optional; reads the current `## Value` if present
-- `.cold/config.json` — `research.maxQueriesPerInvocation` (default 5)
+- `./icp.md` - must exist; run `/cold icp` first if missing
+- `./cold.md` - optional; reads the current `## Value` if present
+- `.cold/config.json` - `research.maxQueriesPerInvocation` (default 5)
 
 ## Process
 
-### Step 1 — Read current state
+### Step 1 - Read current state
 
 - Pull audience, vertical, pain signals from `icp.md`
 - Pull the current `## Value` line from `cold.md` if it exists
 - Note the user's product/service name from cold.md `## Identity`
 
-### Step 2 — Web research (capped at maxQueriesPerInvocation, default 5)
+### Step 2 - Web research (capped at maxQueriesPerInvocation, default 5)
 
 Run these queries in order. Stop when you hit the cap. For each, capture: query, top 3 result titles + URLs, 1-sentence insight.
 
@@ -37,8 +37,8 @@ Run these queries in order. Stop when you hit the cap. For each, capture: query,
    Goal: gather the comparable price band. Tells you whether your price is too high, too low, or aligned.
 
 2. **Recent funding / acquisitions in the niche**
-   `"<niche>" funding 2026`
-   Goal: surface market dynamics — heating up? consolidating?
+   `"<niche>" funding <current year>`
+   Goal: surface market dynamics - heating up? consolidating?
 
 3. **Pain language (real users)**
    `"<niche> <main pain>" reddit OR g2 OR capterra reviews`
@@ -52,12 +52,12 @@ Run these queries in order. Stop when you hit the cap. For each, capture: query,
    `"why <competitor>" OR "alternative to <competitor>"`
    Goal: find unmet needs in competitor reviews. These are your differentiation hooks.
 
-### Step 3 — Save findings
+### Step 3 - Save findings
 
 Write to `.cold/research/offer-research-<YYYY-MM-DD>.md`:
 
 ```markdown
-# Offer research — <YYYY-MM-DD>
+# Offer research - <YYYY-MM-DD>
 
 ## Source
 - ICP: ./icp.md
@@ -65,7 +65,7 @@ Write to `.cold/research/offer-research-<YYYY-MM-DD>.md`:
 - Queries run: 5 of 5
 
 ## Insights summary
-- Pricing band: $X–$Y/mo for comparable products
+- Pricing band: $X-$Y/mo for comparable products
 - Pain phrase repeating across sources: "..."
 - Differentiation gap: <competitor> users complain about <thing>; this is unmet
 - Case-study pattern that works: "<X> increased <metric> by <Y>% in <time>"
@@ -75,7 +75,7 @@ Write to `.cold/research/offer-research-<YYYY-MM-DD>.md`:
 ### Competitor pricing
 - Query: "..."
 - Top results:
-  1. <title> — <url>
+  1. <title> - <url>
   2. ...
 - Insight: ...
 
@@ -93,30 +93,30 @@ Write to `.cold/research/offer-research-<YYYY-MM-DD>.md`:
 3. **Mechanism-first:** "<one sentence>"
 ```
 
-### Step 4 — Synthesize 3 candidate value statements
+### Step 4 - Synthesize 3 candidate value statements
 
 Each must be:
-- **One sentence** (hard rule — if it doesn't fit, the offer isn't clear enough)
-- **Specific** — name a metric, a tool, or a number
-- **Audience-grounded** — uses language from the pain research (Step 2.3)
+- **One sentence** (hard rule - if it doesn't fit, the offer isn't clear enough)
+- **Specific** - name a metric, a tool, or a number
+- **Audience-grounded** - uses language from the pain research (Step 2, query 3)
 - **Free of banned phrases** from `cold.md ## Banned`
 
 Show the user all 3 with a one-line "why this works" each:
 
 ```
 1. Pain-first: "<sentence>"
-   Why: Mirrors the exact phrasing users on r/coldemail used (avg upvotes 200+).
+   Why: Mirrors the exact phrasing users used in <source from the research log>.
 
 2. Gain-first: "<sentence>"
-   Why: Echoes the case-study pattern from <competitor>'s top-grossing landing page.
+   Why: Echoes the case-study pattern found in <source from the research log>.
 
 3. Mechanism-first: "<sentence>"
    Why: Names the specific tool stack the ICP already uses (per icp.md tech signals).
 ```
 
-Ask: "Which angle fits? (1/2/3 / mix / none — propose another)"
+Ask: "Which angle fits? (1/2/3 / mix / none - propose another)"
 
-### Step 5 — Write `offer.md`
+### Step 5 - Write `offer.md`
 
 Use the chosen value statement as the spine. Format:
 
@@ -127,7 +127,7 @@ updated: <YYYY-MM-DD>
 source: cold-offer skill (research log: .cold/research/offer-research-<YYYY-MM-DD>.md)
 ---
 
-# Offer — <Product Name>
+# Offer - <Product Name>
 
 ## Value (one sentence)
 
@@ -141,12 +141,12 @@ source: cold-offer skill (research log: .cold/research/offer-research-<YYYY-MM-D
 
 ## Pain-language quotes (use sparingly in opener)
 
-- "<exact quote from user research>" — <source forum/review>
+- "<exact quote from user research>" - <source forum/review>
 - "<another quote>"
 
 ## Pricing context
 
-- Competitor band: $X–$Y/mo
+- Competitor band: $X-$Y/mo
 - Our position: <higher / lower / aligned> because <reason>
 
 ## Differentiation hook
@@ -154,7 +154,7 @@ source: cold-offer skill (research log: .cold/research/offer-research-<YYYY-MM-D
 <one-line statement of the unmet need we serve that competitors don't>
 ```
 
-### Step 6 — Update `cold.md`
+### Step 6 - Update `cold.md`
 
 Replace `## Value` with the chosen one-sentence value. Optionally append/merge proof points to `## Proof` (deduped).
 
@@ -176,13 +176,13 @@ Reject:  rm .cold/proposed-diff.patch
 - **Never invent pricing or facts.** Only cite what the research surfaced. Always include the source URL.
 - **Reject value statements that exceed one sentence.** If you can't fit it, the offer isn't sharp enough.
 - **Reject value statements that include banned phrases** from `cold.md ## Banned`.
-- **Don't run if no `icp.md`.** Stop with: "Run `/cold icp` first — I need the audience to refine the offer."
+- **Don't run if no `icp.md`.** Stop with: "Run `/cold icp` first - I need the audience to refine the offer."
 
 ## Output
 
 - `offer.md` (new or updated)
 - `.cold/research/offer-research-<YYYY-MM-DD>.md` (research log)
-- `.cold/proposed-diff.patch` (cold.md changes — only if not auto-committing)
+- `.cold/proposed-diff.patch` (cold.md changes - only if not auto-committing)
 
 ## Next step
 
@@ -193,4 +193,3 @@ Once `offer.md` is committed and `cold.md` reflects the new value:
 ## References
 
 - Spec: https://cold.md
-- FoxReach API docs: https://docs.foxreach.io/api-reference

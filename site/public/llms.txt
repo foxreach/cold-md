@@ -1,0 +1,32 @@
+# cold.md
+
+> cold.md is an open spec (CC-BY-4.0) for describing cold outreach as one markdown file, plus an MIT-licensed Claude Code plugin (eleven skills and a /cold command) that reads the file, runs the outreach loop through FoxReach, and proposes edits to the file from A/B results.
+
+## Spec
+- [cold.md spec v0](https://github.com/foxreach/cold-md/blob/main/spec/cold-md-v0.md): eight ordered sections (Identity, Audience, Value, Voice, Proof, Sequence, Objections, Banned) and what a conforming agent must do with each.
+- [Minimal example](https://github.com/foxreach/cold-md/blob/main/examples/minimal.cold.md)
+- [FoxReach's own cold.md](https://github.com/foxreach/cold-md/blob/main/examples/foxreach.cold.md)
+
+## Install
+- `curl -fsSL https://cold.md/install | bash` installs the plugin with the claude CLI (falls back to copying skills into ~/.claude).
+- In Claude Code: `/plugin marketplace add foxreach/cold-md` then `/plugin install cold-md@cold-md`.
+- Sending skills need `pip install foxreach-cli` and `FOXREACH_API_KEY` (keys start with `otr_`).
+
+## Skills
+- cold-icp: build and web-validate icp.md
+- cold-offer: refine the value prop, writes offer.md
+- cold-leads: CSV import or FoxReach Lead Finder search, ICP scoring, email verification, import
+- cold-research: per-lead research bundles for personalization experiments
+- cold-draft: openers, bumps and breakups that obey cold.md; control and variant during experiments
+- cold-send: campaign creation with pre-flight checks (banned phrases, audience, verification, mailbox health, provider matching)
+- cold-experiment: designs the next A/B from a variable ladder
+- cold-learn: two-proportion z-test on interested-reply rate, proposes a cold.md diff, human approval required
+- cold-triage: categorizes replies, drafts answers from ## Objections
+- cold-status: beliefs, running experiments, pending diffs
+- cold-report: daily/weekly digest and /cold audit for a sending domain
+
+## Links
+- [Source](https://github.com/foxreach/cold-md)
+- [Deep dive: cold.md autoresearch](https://www.foxreach.io/blog/cold-md-autoresearch)
+- [FoxReach CLI docs](https://www.foxreach.io/docs/sdks/cli)
+- [FoxReach API docs](https://www.foxreach.io/docs/introduction)
