@@ -58,14 +58,14 @@ Router for the cold.md suite. Every step of the outbound loop, one command.
    - `research` needs a candidates CSV (`id,email,firstName,lastName,company,title`)
    - `draft` family and `lint` need `cold.md`
    - `send` needs `cold.md`, `icp.md`, `.cold/last-import.json`
-5. Key requirements per the table. Missing key: print `export FOXREACH_API_KEY=otr_...` and where to create one (Settings > API Keys in the FoxReach app), then stop.
+5. Key requirements per the table. Missing key: print `export FOXREACH_API_KEY=otr_...` and where to create one (Settings > Integrations > API Keys in the FoxReach app), then stop.
 6. Invoke the skill and output in the format it defines.
 
 ## /cold init (inline)
 
 ### Step 1 - Prerequisites
 - `command -v foxreach`. Missing: `pip install foxreach-cli` (or `pipx install foxreach-cli`) and stop.
-- `FOXREACH_API_KEY` set, or `foxreach config show` lists a key. Missing: explain Settings > API Keys, `export FOXREACH_API_KEY=otr_...` or `foxreach config set-key --key otr_...`, and stop.
+- `FOXREACH_API_KEY` set, or `foxreach config show` lists a key. Missing: explain Settings > Integrations > API Keys, `export FOXREACH_API_KEY=otr_...` or `foxreach config set-key --key otr_...`, and stop.
 - Confirm: "Set up cold.md in `<cwd>`? (Y/n)"
 - `--upgrade`: read the existing `.cold/config.json`, keep every answer it has, ask only the questions for missing keys, write version 0.3. Never touch `trust.json`, `beliefs.md`, `decisions.md` or `experiments/`.
 

@@ -13,7 +13,7 @@ Inside Claude Code:
 
 Or from a terminal: `curl -fsSL https://cold.md/install | bash`
 
-The sending skills need the FoxReach CLI and an API key (Settings > API Keys in FoxReach):
+The sending skills need the FoxReach CLI and an API key (Settings > Integrations > API Keys in FoxReach):
 
 ```bash
 pip install foxreach-cli

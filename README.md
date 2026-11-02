@@ -24,7 +24,7 @@ With the `claude` CLI on your PATH this adds the `foxreach/cold-md` marketplace 
 
 Options: `--scaffold` drops starter `cold.md` and `icp.md` files in the current directory. `--skills-only` copies the skills to `~/.claude/skills/` and `/cold` to `~/.claude/commands/` instead of installing the plugin.
 
-The sending skills use the FoxReach CLI and an API key (Settings > API Keys in FoxReach):
+The sending skills use the FoxReach CLI and an API key (Settings > Integrations > API Keys in FoxReach):
 
 ```bash
 pip install foxreach-cli

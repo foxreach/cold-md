@@ -18,7 +18,7 @@ Keeps the inbox sorted and drafts responses to the replies worth answering. Read
 - `cold.md`: `## Objections` (reply patterns), `## Voice`, `## Banned`, `## Proof`
 - `.cold/last-send.json`: current campaign id (used when `--campaign` is not given)
 - `.cold/config.json`: `trust.humanApprovalRequired` (default true)
-- `FOXREACH_API_KEY` (keys start with `otr_`; create one in the app under Settings > API Keys)
+- `FOXREACH_API_KEY` (keys start with `otr_`; create one in the app under Settings > Integrations > API Keys)
 
 ## Categories
 

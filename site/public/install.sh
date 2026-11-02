@@ -151,7 +151,7 @@ check_foxreach() {
     warn "foxreach CLI not found. The sending skills use it:  pip install foxreach-cli"
   fi
   if [ -z "${FOXREACH_API_KEY:-}" ]; then
-    warn "FOXREACH_API_KEY not set. Create a key in FoxReach under Settings > API Keys, then:"
+    warn "FOXREACH_API_KEY not set. Create a key in FoxReach under Settings > Integrations > API Keys, then:"
     printf "      export FOXREACH_API_KEY=otr_...\n" >&2
   fi
 }

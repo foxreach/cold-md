@@ -279,7 +279,7 @@ export default function Home() {
             The FoxReach-backed skills (leads, send, learn, triage, report) need{' '}
             <code className="font-mono text-xs bg-paper/10 px-1.5 py-0.5 rounded">pip install foxreach-cli</code> and{' '}
             <code className="font-mono text-xs bg-paper/10 px-1.5 py-0.5 rounded">FOXREACH_API_KEY=otr_...</code>{' '}
-            from Settings, API Keys.{' '}
+            from Settings, Integrations, API Keys.{' '}
             <a href="https://www.foxreach.io/signup" target="_blank" rel="noreferrer" className="text-fox-light hover:text-paper">Create a FoxReach account →</a>
           </div>
 

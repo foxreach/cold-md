@@ -9,7 +9,7 @@ Two jobs: the **digest** (`/cold report`) and the **domain audit** (`/cold audit
 
 ## Prerequisites
 
-- `FOXREACH_API_KEY` (starts with `otr_`). If missing for a digest, stop with: "cold-report needs a FoxReach API key. Sign in at https://www.foxreach.io, create one under Settings > API Keys, then `export FOXREACH_API_KEY=otr_...`". The audit's DNS part runs without a key.
+- `FOXREACH_API_KEY` (starts with `otr_`). If missing for a digest, stop with: "cold-report needs a FoxReach API key. Sign in at https://www.foxreach.io, create one under Settings > Integrations > API Keys, then `export FOXREACH_API_KEY=otr_...`". The audit's DNS part runs without a key.
 - `foxreach` CLI (`pip install foxreach-cli`), or curl as a fallback.
 - `.cold/config.json` for `guards` (defaults if missing or v0.2: `bounceRateThreshold` 0.05, `notInterestedRateThreshold` 0.30, `minAccountHealth` 70).
 

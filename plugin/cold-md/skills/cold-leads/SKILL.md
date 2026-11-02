@@ -16,7 +16,7 @@ Turns `icp.md` into a scored, verified list of FoxReach leads. It does not creat
   - `--finder`: use FoxReach Lead Finder
   - `--count N`: how many leads to aim for (Lead Finder). Default: `2 x experiments.minSamplePerVariant`, enough for one A/B.
   - `--threshold 0.5`: minimum ICP fit score
-- `FOXREACH_API_KEY` (`otr_...`) or a key saved with `foxreach config set-key`. Missing: stop and point to Settings > API Keys in the app (https://www.foxreach.io).
+- `FOXREACH_API_KEY` (`otr_...`) or a key saved with `foxreach config set-key`. Missing: stop and point to Settings > Integrations > API Keys in the app (https://www.foxreach.io).
 
 Source = `--csv` / `--finder` if given, else `leads.source`.
 
