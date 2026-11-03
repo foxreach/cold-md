@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from 'react'
 // print (plugin/cold-md/skills/*/SKILL.md); the numbers are illustrative and
 // the page labels the window "example session". The z-test line is consistent:
 // 9/412 vs 21/405 gives +3.0pp, z=2.28, p=0.02, 95% CI [0.4, 5.6].
-type Line = { t: string; tone?: 'dim' | 'ok' | 'fox' | 'head' | 'plain' }
+// m is the phone version of a line: same meaning, short enough not to wrap at 360 px.
+type Line = { t: string; m?: string; tone?: 'dim' | 'ok' | 'fox' | 'head' | 'plain' }
 type Run = { cmd: string; out: Line[] }
 
 const RUNS: Run[] = [
@@ -14,25 +15,25 @@ const RUNS: Run[] = [
     cmd: '/cold send',
     out: [
       { t: 'Pre-flight', tone: 'head' },
-      { t: '✓ Banned phrases     0 hits across 3 steps', tone: 'ok' },
-      { t: '✓ Variables          {{firstName|there}} fallback set', tone: 'ok' },
-      { t: '✓ Audience           12 leads removed by "Not for"', tone: 'ok' },
-      { t: '✓ Mailboxes          4 of 4 above health 70', tone: 'ok' },
-      { t: '✓ Provider matching  on, senders and leads on Google + Microsoft', tone: 'ok' },
-      { t: 'Ready to start "Q1 CTO outreach": 3 steps, 188 leads, 4 accounts', tone: 'plain' },
-      { t: 'Experiment tier-1 / subject line on step 1. Start now? (y/N) y', tone: 'plain' },
-      { t: '✓ Started. First sends can wait up to 30 min for provider lookups.', tone: 'fox' },
+      { t: '✓ Banned phrases     0 hits across 3 steps', m: '✓ Banned phrases  0 hits', tone: 'ok' },
+      { t: '✓ Variables          {{firstName|there}} fallback set', m: '✓ Variables       fallbacks set', tone: 'ok' },
+      { t: '✓ Audience           12 leads removed by "Not for"', m: '✓ Audience        12 removed', tone: 'ok' },
+      { t: '✓ Mailboxes          4 of 4 above health 70', m: '✓ Mailboxes       4 of 4 healthy', tone: 'ok' },
+      { t: '✓ Provider matching  on, senders and leads on Google + Microsoft', m: '✓ Provider match  on', tone: 'ok' },
+      { t: 'Ready to start "Q1 CTO outreach": 3 steps, 188 leads, 4 accounts', m: 'Ready: 3 steps, 188 leads, 4 accounts', tone: 'plain' },
+      { t: 'Experiment tier-1 / subject line on step 1. Start now? (y/N) y', m: 'Start now? (y/N) y', tone: 'plain' },
+      { t: '✓ Started. First sends can wait up to 30 min for provider lookups.', m: '✓ Started. Lookups can take 30 min.', tone: 'fox' },
     ],
   },
   {
     cmd: '/cold learn',
     out: [
-      { t: 'tier-1 / subject line, step 1, read after 7 days', tone: 'head' },
-      { t: 'A  statement   412 sent   9 interested   2.2%', tone: 'plain' },
-      { t: 'B  question    405 sent  21 interested   5.2%', tone: 'plain' },
-      { t: '+3.0pp, 95% CI [0.4, 5.6], p=0.02  ->  winner: B', tone: 'fox' },
-      { t: 'Proposed: .cold/proposed-diff.patch (Sequence > 1. Opener > Subject)', tone: 'plain' },
-      { t: 'Apply with git apply, or reject. Nothing changed until you say so.', tone: 'dim' },
+      { t: 'tier-1 / subject line, step 1, read after 7 days', m: 'tier-1 / subject line, day 7', tone: 'head' },
+      { t: 'A  statement   412 sent   9 interested   2.2%', m: 'A  412 sent   9 interested  2.2%', tone: 'plain' },
+      { t: 'B  question    405 sent  21 interested   5.2%', m: 'B  405 sent  21 interested  5.2%', tone: 'plain' },
+      { t: '+3.0pp, 95% CI [0.4, 5.6], p=0.02  ->  winner: B', m: '+3.0pp, p=0.02  ->  winner: B', tone: 'fox' },
+      { t: 'Proposed: .cold/proposed-diff.patch (Sequence > 1. Opener > Subject)', m: 'Proposed: .cold/proposed-diff.patch', tone: 'plain' },
+      { t: 'Apply with git apply, or reject. Nothing changed until you say so.', m: 'Apply or reject. Nothing changes yet.', tone: 'dim' },
     ],
   },
 ]
@@ -43,6 +44,10 @@ const TONE: Record<NonNullable<Line['tone']>, string> = {
   fox: 'text-[#FF9A5C]',
   plain: 'text-white/75',
   dim: 'text-white/45',
+}
+
+function Mark({ text }: { text: string }) {
+  return text.startsWith('✓ ') ? <><span className="text-[#4ADE80]">✓</span>{text.slice(1)}</> : <>{text}</>
 }
 
 function Prompt({ text, cursor }: { text: string; cursor?: boolean }) {
@@ -90,7 +95,7 @@ export default function TerminalDemo() {
   // While animating, earlier runs stay on screen in full and the current one types.
   const runs = animating ? RUNS.slice(0, run + 1) : RUNS
   return (
-    <div ref={box} style={minH ? { minHeight: minH } : undefined} className="font-mono text-[12.5px] sm:text-[13.5px] leading-[1.75]" aria-label="Example cold.md session in Claude Code">
+    <div ref={box} style={minH ? { minHeight: minH } : undefined} className="font-mono text-[11.5px] leading-[1.7] sm:text-[13.5px] sm:leading-[1.75]" aria-label="Example cold.md session in Claude Code">
       {runs.map((r, idx) => {
         const current = animating && idx === run
         const cmd = current ? r.cmd.slice(0, typed) : r.cmd
@@ -101,7 +106,10 @@ export default function TerminalDemo() {
             <Prompt text={cmd} cursor={typing || (current && shown === 0 && typed >= r.cmd.length)} />
             <div className="mt-1 pl-5">
               {out.map((l, i) => (
-                <div key={i} className={`${TONE[l.tone ?? 'plain']} whitespace-pre ${current ? 'animate-rise' : ''}`}>{l.t}</div>
+                <div key={i} className={`${TONE[l.tone ?? 'plain']} whitespace-pre ${current ? 'animate-rise' : ''}`}>
+                  <span className="sm:hidden"><Mark text={l.m ?? l.t} /></span>
+                  <span className="hidden sm:inline"><Mark text={l.t} /></span>
+                </div>
               ))}
             </div>
           </div>

@@ -46,3 +46,6 @@ pre code { font-variant-ligatures: none; font-feature-settings: 'calt' 0; }
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
 details[open] .faq-plus { transform: rotate(45deg); }
+
+/* Visible keyboard focus everywhere (mouse clicks stay clean) */
+:focus-visible { outline: 2px solid #EA580C; outline-offset: 2px; border-radius: 6px; }

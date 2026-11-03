@@ -1,25 +1,28 @@
 import Link from 'next/link'
 import CopyButton from '../components/CopyButton'
 import TerminalDemo from '../components/TerminalDemo'
+import FileTabs from '../components/FileTabs'
 
 const REPO_URL = 'https://github.com/foxreach/cold-md'
 const SPEC_URL = `${REPO_URL}/blob/main/spec/cold-md-v0.md`
 const INSTALL_CMD = 'curl -fsSL https://cold.md/install | bash'
 const PLUGIN_CMDS = '/plugin marketplace add foxreach/cold-md\n/plugin install cold-md@cold-md'
 const FOXREACH_CMDS = 'pip install foxreach-cli\nexport FOXREACH_API_KEY=otr_...'
+const SKILLS_ONLY_CMD = 'curl -fsSL https://cold.md/install | bash -s -- --skills-only'
+const DESIGN_URL = `${REPO_URL}/blob/main/spec/2026-04-28-autoresearch-design.md`
 
 const SKILLS = [
-  { stage: 'Who', name: 'cold-icp', desc: 'Builds icp.md from your site or a short Q&A, then checks it with web research: competitors, title prevalence, pain language.', key: false },
-  { stage: 'What', name: 'cold-offer', desc: 'Sharpens the value prop with competitor pricing and market research. Writes offer.md and proposes a ## Value edit.', key: false },
-  { stage: 'Leads', name: 'cold-leads', desc: 'Imports your CSV or searches the FoxReach Lead Finder database, scores every lead against icp.md, verifies emails, imports.', key: true },
-  { stage: 'Leads', name: 'cold-research', desc: 'Per-lead research bundles for personalization tests: one cited hook per lead, run in parallel batches.', key: false },
-  { stage: 'Write', name: 'cold-draft', desc: 'Openers, bumps and breakups that obey cold.md. Writes a control and a variant while an experiment runs.', key: false },
-  { stage: 'Send', name: 'cold-send', desc: 'Pre-flight checks, then the campaign: steps, mailboxes, leads, provider matching. Asks before it starts.', key: true },
-  { stage: 'Test', name: 'cold-experiment', desc: 'Picks one variable from the ladder (subject, opener, CTA, cadence, tone) and writes the protocol before anything sends.', key: false },
-  { stage: 'Test', name: 'cold-learn', desc: 'Reads reply categories per variant, runs a two-proportion z-test, and proposes a cold.md diff for your approval.', key: true },
-  { stage: 'Replies', name: 'cold-triage', desc: 'Categorizes unread replies and drafts answers from ## Objections. Nothing is sent until you approve it.', key: true },
-  { stage: 'Report', name: 'cold-status', desc: 'One screen: what the tests have taught you, what is running, pending diffs and the next step.', key: false },
-  { stage: 'Report', name: 'cold-report', desc: 'Daily or weekly digest of sends, replies, mailbox health and test outcomes. Also runs /cold audit on a domain.', key: true },
+  { stage: 'Who', name: 'cold-icp', cmd: '/cold icp', desc: 'Builds icp.md from your site or a short Q&A, then checks it with web research: competitors, title prevalence, pain language.', key: false },
+  { stage: 'What', name: 'cold-offer', cmd: '/cold offer', desc: 'Sharpens the value prop with competitor pricing and market research. Writes offer.md and proposes a ## Value edit.', key: false },
+  { stage: 'Leads', name: 'cold-leads', cmd: '/cold leads', desc: 'Imports your CSV or searches the FoxReach Lead Finder database, scores every lead against icp.md, verifies emails, imports.', key: true },
+  { stage: 'Leads', name: 'cold-research', cmd: '/cold research', desc: 'Per-lead research bundles for personalization tests: one cited hook per lead, run in parallel batches.', key: false },
+  { stage: 'Write', name: 'cold-draft', cmd: '/cold draft', desc: 'Openers, bumps and breakups that obey cold.md. Writes a control and a variant while an experiment runs.', key: false },
+  { stage: 'Send', name: 'cold-send', cmd: '/cold send', desc: 'Pre-flight checks, then the campaign: steps, mailboxes, leads, provider matching. Asks before it starts.', key: true },
+  { stage: 'Test', name: 'cold-experiment', cmd: '/cold experiment', desc: 'Picks one variable from the ladder (subject, opener, CTA, cadence, tone) and writes the protocol before anything sends.', key: false },
+  { stage: 'Test', name: 'cold-learn', cmd: '/cold learn', desc: 'Reads reply categories per variant, runs a two-proportion z-test, and proposes a cold.md diff for your approval.', key: true },
+  { stage: 'Replies', name: 'cold-triage', cmd: '/cold triage', desc: 'Categorizes unread replies and drafts answers from ## Objections. Nothing is sent until you approve it.', key: true },
+  { stage: 'Report', name: 'cold-status', cmd: '/cold status', desc: 'One screen: what the tests have taught you, what is running, pending diffs and the next step.', key: false },
+  { stage: 'Report', name: 'cold-report', cmd: '/cold report', desc: 'Daily or weekly digest of sends, replies, mailbox health and test outcomes. Also runs /cold audit on a domain.', key: true },
 ] as const
 
 const PIECES = [
@@ -78,43 +81,6 @@ const FAQS = [
   },
 ] as const
 
-const FILE_LINES = `---
-coldMdVersion: "0"
-owner: "Dana Reyes <dana@northwind.dev>"
----
-
-# Northwind - cold.md
-
-## Identity
-I'm Dana, founder of Northwind. We turn product analytics
-into a weekly plan your growth team can act on.
-
-## Audience
-- B2B SaaS, 20-200 employees, Series A or B
-- Title: Head of Growth, VP Product, Founder
-### Not for
-- Agencies, consultancies
-
-## Value
-Northwind tells your growth team what to ship next week,
-from the data you already collect.
-
-## Voice
-### Do
-- Short sentences. One idea each.
-- Close with one yes/no question.
-### Don't
-- Use em dashes.
-
-## Sequence
-### 1. Opener (Day 0)
-- Subject: a question about their stack, 6 words max
-- Body: 40-60 words, one observable fact
-
-## Banned
-- I hope this email finds you well
-- circle back`
-
 const DIFF = [
   { k: ' ', t: '### 1. Opener (Day 0)' },
   { k: '-', t: '- Subject: 5 words max, lowercase, a statement' },
@@ -130,7 +96,8 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden">
+    <main id="top" className="min-h-screen overflow-x-hidden">
+      <a href="#how" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:text-white">Skip to content</a>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
       {/* Nav */}
@@ -163,17 +130,17 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-4 pb-10 pt-14 text-center sm:px-6 sm:pt-20">
           <a href="#foxreach" className="inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-white py-1 pl-1 pr-3 text-[13px] text-ink-2 shadow-card hover:border-ink/15">
             <span className="shrink-0 rounded-full bg-fox px-2.5 py-0.5 text-xs font-semibold text-white">v0.3</span>
-            <span className="truncate">Lead Finder, verification and provider matching built in</span>
+            <span className="truncate"><span className="sm:hidden">Lead Finder and verification built in</span><span className="hidden sm:inline">Lead Finder, verification and provider matching built in</span></span>
             <span aria-hidden className="shrink-0">→</span>
           </a>
 
-          <h1 className="mx-auto mt-7 max-w-4xl font-display text-hero font-semibold text-ink">
+          <h1 className="mx-auto mt-7 max-w-4xl text-balance font-display text-hero font-semibold text-ink">
             Cold outreach that
             <br />
             <span className="font-serif font-normal italic tracking-[-0.02em] text-fox">improves itself.</span>
           </h1>
 
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-2 sm:text-xl">
+          <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-ink-2 sm:text-xl">
             One markdown file defines your outbound. Eleven Claude Code skills run it through FoxReach,
             test it, and propose edits to it from what got replies.
           </p>
@@ -190,8 +157,8 @@ export default function Home() {
             </a>
           </div>
 
-          <div className="mx-auto mt-6 flex max-w-md items-center justify-between gap-3 rounded-full border border-line bg-white/90 py-1.5 pl-4 pr-1.5 text-left shadow-card">
-            <code className="truncate font-mono text-[13px] text-ink-2"><span className="text-ink-4">$ </span>{INSTALL_CMD}</code>
+          <div className="mx-auto mt-6 hidden max-w-md items-center justify-between gap-3 rounded-full border border-line bg-white/90 py-1.5 pl-4 pr-1.5 text-left shadow-card sm:flex">
+            <code className="truncate font-mono text-[11px] text-ink-2 min-[400px]:text-[12px] sm:text-[13px]"><span className="hidden text-ink-4 sm:inline">$ </span>{INSTALL_CMD}</code>
             <CopyButton text={INSTALL_CMD} />
           </div>
 
@@ -203,12 +170,12 @@ export default function Home() {
                 <span className="h-3 w-3 rounded-full bg-[#FEBC2E]" />
                 <span className="h-3 w-3 rounded-full bg-[#28C840]" />
               </div>
-              <div className="mx-auto flex items-center gap-2 rounded-md bg-white/5 px-3 py-1 font-mono text-[11.5px] text-white/55">
+              <div className="mx-auto hidden items-center gap-2 rounded-md bg-white/5 px-3 py-1 font-mono text-[11.5px] text-white/55 min-[420px]:flex">
                 ~/northwind-outbound <span className="text-white/30">·</span> claude
               </div>
-              <span className="hidden rounded-full border border-white/15 px-2 py-0.5 text-[10.5px] font-medium uppercase tracking-wider text-white/45 sm:inline">example session</span>
+              <span className="shrink-0 rounded-full border border-white/15 px-2 py-0.5 text-[10.5px] font-medium uppercase tracking-wider text-white/45"><span className="sm:hidden">example</span><span className="hidden sm:inline">example session</span></span>
             </div>
-            <div className="no-scrollbar overflow-x-auto px-5 py-5 sm:px-7 sm:py-6">
+            <div className="no-scrollbar overflow-x-auto px-4 py-5 sm:px-7 sm:py-6">
               <TerminalDemo />
             </div>
           </div>
@@ -220,7 +187,7 @@ export default function Home() {
             {[
               ['Skills', '11'],
               ['Command', '/cold'],
-              ['License', 'MIT + CC-BY'],
+              ['Price', 'Free'],
             ].map(([k, v], i) => (
               <div key={k} className={`px-4 py-4 sm:px-6 ${i > 0 ? 'border-l border-line' : ''}`}>
                 <dt className="text-xs text-ink-3">{k}</dt>
@@ -252,7 +219,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2">
             <div className="px-6 py-14 sm:px-10 sm:py-20">
               <Eyebrow>The cold.md file</Eyebrow>
-              <h2 className="mt-4 font-display text-h2 font-semibold">The brief every skill reads.</h2>
+              <h2 className="mt-4 text-balance font-display text-h2 font-semibold">The brief every skill reads.</h2>
               <p className="mt-5 max-w-md text-[17px] leading-relaxed text-ink-2">
                 Eight sections, in order, in plain markdown. Commit it next to your code and it travels with your team, not with your vendor.
               </p>
@@ -274,22 +241,7 @@ export default function Home() {
               </a>
             </div>
             <div className="dots min-w-0 border-t border-line p-4 sm:p-8 lg:border-l lg:border-t-0">
-              <div className="overflow-hidden rounded-xl border border-line bg-white shadow-lift">
-                <div className="flex items-center gap-1 border-b border-line bg-panel px-3 pt-2 text-[12.5px]">
-                  <span className="rounded-t-md border border-b-0 border-line bg-white px-3 py-1.5 font-mono text-ink">cold.md</span>
-                  <span className="px-3 py-1.5 font-mono text-ink-4">icp.md</span>
-                  <span className="ml-auto pb-1.5 pr-1 text-[11px] uppercase tracking-wider text-ink-4">example</span>
-                </div>
-                <div className="relative"><pre className="no-scrollbar max-h-[560px] overflow-auto p-5 pb-10 font-mono text-[12.5px] leading-[1.7]">
-                  <code>
-                    {FILE_LINES.split('\n').map((line, i) => (
-                      <div key={i} className={line.startsWith('## ') ? 'font-medium text-fox' : line.startsWith('### ') || line.startsWith('# ') ? 'font-medium text-ink' : line === '---' || /^\w+:/.test(line) ? 'text-ink-4' : 'text-ink-2'}>
-                        {line || ' '}
-                      </div>
-                    ))}
-                  </code>
-                </pre><div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-white/0" /></div>
-              </div>
+              <FileTabs />
             </div>
           </div>
         </section>
@@ -320,10 +272,10 @@ export default function Home() {
                     <span className="font-mono">.cold/proposed-diff.patch</span>
                     <span className="text-[11px] text-ink-4">awaiting your approval</span>
                   </div>
-                  <pre className="no-scrollbar overflow-x-auto py-2 font-mono text-[12.5px] leading-[1.8]">
+                  <pre className="no-scrollbar overflow-x-auto py-2 font-mono text-[12px] leading-[1.8] sm:text-[12.5px]">
                     <code>
                       {DIFF.map((d, i) => (
-                        <div key={i} className={`px-4 ${d.k === '+' ? 'bg-[#E8F7EE] text-[#166534]' : d.k === '-' ? 'bg-[#FDECEC] text-[#991B1B]' : 'text-ink-3'}`}>
+                        <div key={i} className={`whitespace-pre-wrap px-4 sm:whitespace-pre ${d.k === '+' ? 'bg-[#E8F7EE] text-[#166534]' : d.k === '-' ? 'bg-[#FDECEC] text-[#991B1B]' : 'text-ink-3'}`}>
                           <span className="mr-3 select-none opacity-60">{d.k}</span>{d.t}
                         </div>
                       ))}
@@ -335,22 +287,27 @@ export default function Home() {
             </div>
             <div className="order-1 px-6 py-14 sm:px-10 sm:py-20 lg:order-2">
               <Eyebrow>Autoresearch</Eyebrow>
-              <h2 className="mt-4 font-display text-h2 font-semibold">Tests that edit <span className="font-serif font-normal italic tracking-[-0.01em] text-fox">the file.</span></h2>
+              <h2 className="mt-4 text-balance font-display text-h2 font-semibold">Tests that edit <span className="font-serif font-normal italic tracking-[-0.01em] text-fox">the file.</span></h2>
               <p className="mt-5 max-w-md text-[17px] leading-relaxed text-ink-2">
                 cold-experiment picks one variable and writes the test down before anything sends. A week later cold-learn reads the replies per variant and runs the numbers.
               </p>
-              <ol className="mt-8 space-y-5">
+              <ul className="mt-8 space-y-5">
                 {[
                   ['Winner', 'A proposed patch to cold.md, with the sample, lift, confidence interval and p-value next to it.'],
                   ['Inconclusive', 'cold.md is left alone. The test is extended or closed, and the next variable is up.'],
                   ['Trust', 'After three approved patches in a row it can apply them itself. One rejection turns that off.'],
-                ].map(([k, v], i) => (
+                ].map(([k, v]) => (
                   <li key={k} className="flex gap-4">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-fox/30 font-mono text-xs text-fox">{i + 1}</span>
+                    <span className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${k === 'Winner' ? 'bg-[#E8F7EE]' : k === 'Trust' ? 'bg-fox-tint' : 'bg-grey'}`} aria-hidden>
+                      <span className={`h-2 w-2 rounded-full ${k === 'Winner' ? 'bg-good' : k === 'Trust' ? 'bg-fox' : 'bg-ink-4'}`} />
+                    </span>
                     <div><div className="font-semibold">{k}</div><p className="mt-1 text-[15px] leading-relaxed text-ink-3">{v}</p></div>
                   </li>
                 ))}
-              </ol>
+              </ul>
+              <a href={DESIGN_URL} target="_blank" rel="noreferrer" className="mt-9 inline-flex items-center gap-2 text-[15px] font-medium hover:text-fox">
+                How cold-learn decides <Arrow />
+              </a>
             </div>
           </div>
         </section>
@@ -360,11 +317,14 @@ export default function Home() {
           <SectionHead eyebrow="The skills" title="Eleven skills. Each owns one step." lede="Every skill reads cold.md or icp.md and writes a file you can review. Call them through /cold or on their own." />
           <div className="grid grid-cols-1 gap-px border-t border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
             {SKILLS.map((s) => (
-              <div key={s.name} className="bg-white px-6 py-7 sm:px-8">
+              <div key={s.name} className="flex flex-col bg-white px-6 py-7 sm:px-8">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fox">{s.stage}</div>
                 <h3 className="mt-2 font-mono text-[15px] font-medium">{s.name}</h3>
                 <p className="mt-2 text-[14.5px] leading-relaxed text-ink-3">{s.desc}</p>
-                {s.key && <div className="mt-4 inline-flex rounded-full bg-grey px-2.5 py-0.5 text-[11px] text-ink-3">Needs a FoxReach key</div>}
+                <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
+                  <code className="rounded-md border border-line bg-panel px-2 py-0.5 font-mono text-[11.5px] text-ink-2">{s.cmd}</code>
+                  {s.key && <span className="rounded-full bg-grey px-2.5 py-0.5 text-[11px] text-ink-3">Needs a FoxReach key</span>}
+                </div>
               </div>
             ))}
             <a href={SPEC_URL} target="_blank" rel="noreferrer" className="group flex flex-col justify-between bg-fox-tint px-6 py-7 hover:bg-fox-light/50 sm:px-8">
@@ -379,9 +339,9 @@ export default function Home() {
       <section id="foxreach" className="bg-night text-white">
         <div className="dots-dark mx-auto max-w-6xl border-x border-night-line">
           <div className="px-6 py-16 sm:px-10 sm:py-24">
-            <div className="flex items-center gap-2 text-[13px] text-white/60"><span className="h-2 w-2 rounded-[3px] bg-fox" /> The sending layer</div>
+            <div className="flex items-center gap-2 text-[13px] text-white/60"><span className="flex h-4 w-4 items-center justify-center rounded-[5px] bg-fox/25"><span className="h-1.5 w-1.5 rounded-[2px] bg-fox" /></span>The sending layer</div>
             <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-end">
-              <h2 className="font-display text-h2 font-semibold">The skills decide.<br /><span className="font-serif font-normal italic tracking-[-0.01em] text-[#FF9A5C]">FoxReach sends.</span></h2>
+              <h2 className="text-balance font-display text-h2 font-semibold">The skills decide.<br /><span className="font-serif font-normal italic tracking-[-0.01em] text-[#FF9A5C]">FoxReach sends.</span></h2>
               <p className="max-w-md text-[17px] leading-relaxed text-white/65">
                 The sending skills call the public <a href="https://www.foxreach.io/docs/sdks/cli" target="_blank" rel="noreferrer" className="text-white underline decoration-white/30 underline-offset-4 hover:decoration-white">FoxReach CLI</a> and API. These are the pieces they use and the command behind each.
               </p>
@@ -416,21 +376,22 @@ export default function Home() {
         {/* Comparison */}
         <section className="border-b border-line">
           <SectionHead eyebrow="Why a suite" title="Other cold email skills draft. That is one step." lede="Drafting is where the work starts. The loop is what turns sends into a better policy." />
-          <div className="overflow-x-auto border-t border-line">
-            <table className="w-full min-w-[520px] text-left text-[15px]">
+          <div className="border-t border-line">
+            <table className="w-full table-fixed text-left text-[14px] sm:text-[15px]">
+              <colgroup><col /><col className="w-[76px] sm:w-[180px]" /><col className="w-[76px] sm:w-[140px]" /></colgroup>
               <thead>
                 <tr className="text-xs text-ink-3">
-                  <th className="px-6 py-3 font-medium sm:px-8">What you get</th>
-                  <th className="px-4 py-3 text-center font-medium">A cold email skill</th>
-                  <th className="bg-fox-tint px-4 py-3 text-center font-semibold text-fox-deep">cold.md</th>
+                  <th className="px-4 py-3 font-medium sm:px-8">What you get</th>
+                  <th className="px-2 py-3 text-center font-medium"><span className="sm:hidden">Others</span><span className="hidden sm:inline">A cold email skill</span></th>
+                  <th className="bg-fox-tint px-2 py-3 text-center font-semibold text-fox-deep">cold.md</th>
                 </tr>
               </thead>
               <tbody>
                 {COMPARE.map(([label, a, b]) => (
                   <tr key={label} className="border-t border-line">
-                    <td className="px-6 py-3.5 sm:px-8">{label}</td>
-                    <td className="px-4 py-3.5 text-center">{a ? <Tick /> : <Dash />}</td>
-                    <td className="bg-fox-tint px-4 py-3.5 text-center">{b ? <Tick fox /> : <Dash />}</td>
+                    <td className="px-4 py-3.5 sm:px-8">{label}</td>
+                    <td className="px-2 py-3.5 text-center">{a ? <Tick /> : <Dash />}</td>
+                    <td className="bg-fox-tint px-2 py-3.5 text-center">{b ? <Tick fox /> : <Dash />}</td>
                   </tr>
                 ))}
               </tbody>
@@ -465,17 +426,21 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <p className="border-t border-line px-6 py-4 text-sm text-ink-3 sm:px-8">
-            No plugin, just skills in ~/.claude? <code className="break-all rounded bg-grey px-1.5 py-0.5 font-mono text-[12.5px]">{INSTALL_CMD} -s -- --skills-only</code>
-          </p>
+          <div className="flex flex-col gap-3 border-t border-line px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <p className="text-sm text-ink-3">No plugin, just the skills in ~/.claude:</p>
+            <div className="flex min-w-0 items-center justify-between gap-3 rounded-full border border-line bg-panel py-1 pl-4 pr-1">
+              <code className="no-scrollbar min-w-0 overflow-x-auto whitespace-nowrap font-mono text-[12px] text-ink-2">{SKILLS_ONLY_CMD}</code>
+              <CopyButton text={SKILLS_ONLY_CMD} />
+            </div>
+          </div>
         </section>
 
         {/* FAQ */}
         <section id="faq" className="border-t border-line">
           <div className="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr]">
-            <div className="px-6 py-14 sm:px-10 sm:py-20">
+            <div className="px-6 py-14 sm:px-10 sm:py-20 lg:sticky lg:top-16 lg:self-start">
               <Eyebrow>FAQ</Eyebrow>
-              <h2 className="mt-4 font-display text-h2 font-semibold">Questions, answered.</h2>
+              <h2 className="mt-4 text-balance font-display text-h2 font-semibold">Questions, answered.</h2>
               <p className="mt-4 max-w-xs text-[15px] leading-relaxed text-ink-3">
                 Anything else: open an issue on <a href={REPO_URL} target="_blank" rel="noreferrer" className="text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink">GitHub</a>.
               </p>
@@ -483,7 +448,7 @@ export default function Home() {
             <div className="border-t border-line lg:border-l lg:border-t-0">
               {FAQS.map((f, i) => (
                 <details key={f.q} className={`group ${i > 0 ? 'border-t border-line' : ''}`} open={i === 0}>
-                  <summary className="flex cursor-pointer items-center justify-between gap-6 px-6 py-5 text-[16px] font-semibold hover:bg-panel sm:px-8">
+                  <summary className="flex cursor-pointer items-center justify-between gap-6 px-6 py-5 text-[16px] font-semibold outline-none hover:bg-panel focus-visible:bg-panel focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-fox sm:px-8">
                     {f.q}
                     <span className="faq-plus text-xl font-normal text-ink-3 transition-transform" aria-hidden>+</span>
                   </summary>
@@ -497,7 +462,7 @@ export default function Home() {
         {/* Closer */}
         <section className="border-t border-line px-4 py-10 sm:px-8 sm:py-14">
           <div className="fox-gradient relative overflow-hidden rounded-3xl px-6 py-16 text-center text-white sm:px-12 sm:py-20">
-            <h2 className="font-display text-h2 font-semibold">
+            <h2 className="text-balance font-display text-h2 font-semibold">
               Your next campaign is
               <br />
               <span className="font-serif font-normal italic tracking-[-0.01em]">one file away.</span>
@@ -518,8 +483,8 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-line">
-        <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 sm:grid-cols-[1.4fr_1fr_1fr_1fr] sm:px-8">
-          <div>
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-10 px-6 py-12 sm:grid-cols-[1.4fr_1fr_1fr_1fr] sm:px-8">
+          <div className="col-span-2 sm:col-span-1">
             <div className="flex items-center gap-2"><Mark /><span className="font-mono text-[15px] font-medium">cold.md</span></div>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-ink-3">Open spec (CC-BY-4.0) and Claude Code plugin (MIT).</p>
             <a href="https://www.foxreach.io" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm text-ink-2 hover:text-ink">
@@ -531,6 +496,10 @@ export default function Home() {
           <FooterCol title="Source" links={[['GitHub', REPO_URL], ['Spec v0', SPEC_URL], ['Examples', `${REPO_URL}/tree/main/examples`], ['llms.txt', '/llms.txt']]} />
           <FooterCol title="FoxReach" links={[['Setup guide', 'https://www.foxreach.io/docs/integrations/cold-md'], ['Integration page', 'https://www.foxreach.io/integrations/ai-clients/cold-md'], ['CLI docs', 'https://www.foxreach.io/docs/sdks/cli'], ['Create an account', 'https://www.foxreach.io/signup']]} />
         </div>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 border-t border-line px-6 py-5 text-xs text-ink-4 sm:px-8">
+          <span>© 2026 FoxReach. Spec CC-BY-4.0, code MIT.</span>
+          <a href="#top" className="hover:text-ink">Back to top ↑</a>
+        </div>
       </footer>
     </main>
   )
@@ -541,9 +510,9 @@ function SectionHead({ eyebrow, title, lede }: { eyebrow: string; title: string;
     <div className="grid grid-cols-1 gap-5 px-6 py-14 sm:px-10 sm:py-20 lg:grid-cols-[1.25fr_1fr] lg:items-end">
       <div>
         <Eyebrow>{eyebrow}</Eyebrow>
-        <h2 className="mt-4 max-w-2xl font-display text-h2 font-semibold">{title}</h2>
+        <h2 className="mt-4 max-w-2xl text-balance font-display text-h2 font-semibold">{title}</h2>
       </div>
-      <p className="max-w-md text-[17px] leading-relaxed text-ink-3">{lede}</p>
+      <p className="max-w-md text-pretty text-[17px] leading-relaxed text-ink-3">{lede}</p>
     </div>
   )
 }
@@ -600,7 +569,11 @@ function Tick({ fox }: { fox?: boolean }) {
 }
 
 function Dash() {
-  return <span className="text-ink-4" role="img" aria-label="no">-</span>
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="mx-auto h-4 w-4 text-ink-4/70" role="img" aria-label="no">
+      <path d="M4.5 8h7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
 }
 
 function GitHubGlyph() {
