@@ -2,41 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
-html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
-body {
-  background: #faf7f2;
-  color: #1a1512;
-  font-feature-settings: 'ss01', 'cv11';
-}
+body { background: #FFFFFF; color: #000000; }
 
-::selection { background: #C2410C; color: #faf7f2; }
+::selection { background: #EA580C; color: #FFFFFF; }
 
-/* Subtle grain background */
-.grain::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.035;
-  background-image:
-    radial-gradient(1.5px 1.5px at 20% 30%, #1a1512, transparent),
-    radial-gradient(1px 1px at 80% 70%, #1a1512, transparent),
-    radial-gradient(1.5px 1.5px at 40% 90%, #1a1512, transparent),
-    radial-gradient(1px 1px at 60% 10%, #1a1512, transparent);
-  background-size: 120px 120px;
-}
+section[id] { scroll-margin-top: 88px; }
 
-/* Scroll-margin for anchor links */
-section { scroll-margin-top: 80px; }
+pre code { font-variant-ligatures: none; font-feature-settings: 'calt' 0; }
 
-/* Code block polish */
-pre code {
-  font-variant-ligatures: none;
-  font-feature-settings: 'calt' 0;
-}
-
-/* Hide scrollbar on horizontal scrollers */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* The soft orange glow behind the hero, as on foxreach.io */
+.hero-glow {
+  background:
+    radial-gradient(60% 55% at 50% 38%, rgba(234, 88, 12, 0.16), rgba(234, 88, 12, 0) 70%),
+    radial-gradient(40% 40% at 85% 20%, rgba(251, 222, 206, 0.55), rgba(251, 222, 206, 0) 70%),
+    radial-gradient(40% 40% at 12% 30%, rgba(251, 222, 206, 0.45), rgba(251, 222, 206, 0) 70%);
+}
+
+/* Dot grid used behind UI evidence in cards */
+.dots {
+  background-color: #F7F7F7;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.09) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+.dots-dark {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+/* The orange closer card */
+.fox-gradient {
+  background:
+    radial-gradient(80% 120% at 85% 110%, rgba(120, 30, 0, 0.55), rgba(120, 30, 0, 0) 60%),
+    radial-gradient(70% 90% at 10% 0%, rgba(255, 170, 120, 0.55), rgba(255, 170, 120, 0) 60%),
+    #EA580C;
+}
+
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] .faq-plus { transform: rotate(45deg); }

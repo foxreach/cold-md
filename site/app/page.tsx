@@ -1,400 +1,612 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import CopyButton from '../components/CopyButton'
+import TerminalDemo from '../components/TerminalDemo'
 
-const INSTALL_CMD = 'curl -fsSL https://cold.md/install | bash'
 const REPO_URL = 'https://github.com/foxreach/cold-md'
 const SPEC_URL = `${REPO_URL}/blob/main/spec/cold-md-v0.md`
+const INSTALL_CMD = 'curl -fsSL https://cold.md/install | bash'
 const PLUGIN_CMDS = '/plugin marketplace add foxreach/cold-md\n/plugin install cold-md@cold-md'
+const FOXREACH_CMDS = 'pip install foxreach-cli\nexport FOXREACH_API_KEY=otr_...'
 
 const SKILLS = [
-  { num: '01', name: 'cold-icp',        desc: 'Build icp.md from a URL or Q&A, then check it with web search: competitors, title prevalence, pain language.',                       needsKey: false },
-  { num: '02', name: 'cold-offer',      desc: 'Sharpen the value prop with competitor pricing and market research. Writes offer.md and proposes a ## Value diff.',                 needsKey: false },
-  { num: '03', name: 'cold-leads',      desc: 'Import a CSV or search the FoxReach Lead Finder database. Scores every lead against icp.md, verifies emails, then imports.',       needsKey: true  },
-  { num: '04', name: 'cold-research',   desc: 'Per-lead research bundles for personalization tests. Parallel batches, one cited hook per lead, A/B arm assignments.',             needsKey: false },
-  { num: '05', name: 'cold-draft',      desc: 'Draft openers, bumps and breakups that obey cold.md. Writes a control and a variant when an experiment is running.',               needsKey: false },
-  { num: '06', name: 'cold-send',       desc: 'Creates the campaign with pre-flight checks: banned phrases, audience, verification, mailbox health, provider match, duplicates.', needsKey: true  },
-  { num: '07', name: 'cold-experiment', desc: 'Picks the next A/B from the variable ladder (subject, opener, CTA, cadence, tone) and writes the protocol before anything sends.', needsKey: false },
-  { num: '08', name: 'cold-learn',      desc: 'Reads per-variant reply categories, runs a z-test on interested-reply rate and proposes a cold.md diff for your approval.',          needsKey: true  },
-  { num: '09', name: 'cold-triage',     desc: 'Categorizes unread replies and drafts answers from ## Objections. Nothing is sent until you approve it.',                           needsKey: true  },
-  { num: '10', name: 'cold-status',     desc: 'One screen: what the experiments have taught you, what is running, pending diffs, the next step.',                                  needsKey: false },
-  { num: '11', name: 'cold-report',     desc: 'Daily or weekly digest of sends, replies, mailbox health and experiment outcomes. Also runs /cold audit on a sending domain.',      needsKey: true  },
+  { stage: 'Who', name: 'cold-icp', desc: 'Builds icp.md from your site or a short Q&A, then checks it with web research: competitors, title prevalence, pain language.', key: false },
+  { stage: 'What', name: 'cold-offer', desc: 'Sharpens the value prop with competitor pricing and market research. Writes offer.md and proposes a ## Value edit.', key: false },
+  { stage: 'Leads', name: 'cold-leads', desc: 'Imports your CSV or searches the FoxReach Lead Finder database, scores every lead against icp.md, verifies emails, imports.', key: true },
+  { stage: 'Leads', name: 'cold-research', desc: 'Per-lead research bundles for personalization tests: one cited hook per lead, run in parallel batches.', key: false },
+  { stage: 'Write', name: 'cold-draft', desc: 'Openers, bumps and breakups that obey cold.md. Writes a control and a variant while an experiment runs.', key: false },
+  { stage: 'Send', name: 'cold-send', desc: 'Pre-flight checks, then the campaign: steps, mailboxes, leads, provider matching. Asks before it starts.', key: true },
+  { stage: 'Test', name: 'cold-experiment', desc: 'Picks one variable from the ladder (subject, opener, CTA, cadence, tone) and writes the protocol before anything sends.', key: false },
+  { stage: 'Test', name: 'cold-learn', desc: 'Reads reply categories per variant, runs a two-proportion z-test, and proposes a cold.md diff for your approval.', key: true },
+  { stage: 'Replies', name: 'cold-triage', desc: 'Categorizes unread replies and drafts answers from ## Objections. Nothing is sent until you approve it.', key: true },
+  { stage: 'Report', name: 'cold-status', desc: 'One screen: what the tests have taught you, what is running, pending diffs and the next step.', key: false },
+  { stage: 'Report', name: 'cold-report', desc: 'Daily or weekly digest of sends, replies, mailbox health and test outcomes. Also runs /cold audit on a domain.', key: true },
 ] as const
 
-const FOXREACH_PIECES = [
-  { title: 'Lead Finder',        cmd: 'foxreach lead-finder count',       desc: 'Turns icp.md into people-database filters. Counting is free; you approve the reveal cost before any work email is revealed.' },
-  { title: 'Email verification', cmd: 'foxreach verification verify-bulk', desc: 'Every CSV lead is checked before import. Bad addresses are dropped, and only definite good or bad verdicts use a credit.' },
-  { title: 'Provider matching',  cmd: 'foxreach campaigns esp-mix',       desc: 'Shows how your mailboxes and your leads split across Google, Microsoft and the rest, so the first email can go out from the same provider.' },
-  { title: 'Mailbox health',     cmd: 'foxreach accounts health',         desc: 'Health is the share of warmup mail that lands in the inbox. cold-send leaves out any mailbox under your floor before the campaign starts.' },
-  { title: 'A/B variants',       cmd: 'foxreach sequences list',          desc: 'cold-send writes your control and hands you the variant to paste into the campaign step, then reads the variant IDs back for the test.' },
-  { title: 'Reply stats',        cmd: 'foxreach inbox categorize-stats',  desc: 'Reply categories per variant, step and day. This is what the z-test in cold-learn runs on.' },
+const PIECES = [
+  { title: 'Lead Finder', cmd: 'foxreach lead-finder count', desc: 'icp.md becomes people-database filters. Counting is free, and you approve the reveal cost before any work email is revealed.' },
+  { title: 'Email verification', cmd: 'foxreach verification verify-bulk', desc: 'Every CSV lead is checked before import. Bad addresses never reach a campaign; only definite good or bad verdicts use a credit.' },
+  { title: 'Provider matching', cmd: 'foxreach campaigns esp-mix', desc: 'How your mailboxes and leads split across Google and Microsoft, so the first email can go out from the same provider.' },
+  { title: 'Mailbox health', cmd: 'foxreach accounts health', desc: 'Health is the share of warmup mail that lands in the inbox. Mailboxes under your floor stay out of the campaign.' },
+  { title: 'A/B variants', cmd: 'foxreach sequences list', desc: 'cold-send writes the control and hands you the variant to paste into the step, then reads the variant IDs back.' },
+  { title: 'Reply categories', cmd: 'foxreach inbox categorize-stats', desc: 'Interested, not interested and out of office per variant, step and day. The z-test in cold-learn runs on these.' },
 ] as const
 
-const SPEC_SNIPPET = `# My Product - cold.md
+const STEPS = [
+  { n: '01', title: 'Write the policy once', body: 'cold.md in your repo: who you are, who you write to, the offer, your voice, the facts you may cite, the sequence and the banned phrases.' },
+  { n: '02', title: 'Run the loop', body: 'One /cold command per step. Leads, drafts, sending and replies all go through FoxReach, and every step leaves a file you can review.' },
+  { n: '03', title: 'Approve what it learned', body: 'When a test finds a winner, cold-learn proposes an edit to cold.md with the numbers behind it. You apply it or reject it.' },
+] as const
 
-## Identity    - who's sending
-## Audience    - ICP + disqualifiers
-## Value       - the offer, in one sentence
-## Voice       - dos and don'ts, obeyed verbatim
-## Proof       - facts the agent may cite
-## Sequence    - opener, bump, breakup slots
-## Objections  - preferred replies to pushbacks
-## Banned      - phrases that never appear`
+const COMPARE = [
+  ['Drafts emails when you ask', true, true],
+  ['Builds the ICP from your site', false, true],
+  ['Finds and verifies leads', false, true],
+  ['Sends with pre-flight checks', false, true],
+  ['Sorts replies against your objections', false, true],
+  ['A/B tests that edit the policy file', false, true],
+  ['Policy committed to your repo, portable across tools', false, true],
+] as const
 
-const CMD_STACK = [
-  ['/cold init', 'set up .cold/, check your FoxReach key'],
-  ['/cold icp https://your-site.com', 'who to reach'],
-  ['/cold leads --finder --count 200', 'source, score, verify'],
-  ['/cold experiment', 'pick the next A/B'],
-  ['/cold draft Jane, CEO at Acme', 'control + variant'],
-  ['/cold send', 'pre-flight, create, start'],
-  ['/cold triage', 'daily: sort replies'],
-  ['/cold learn', 'a week later: z-test, cold.md diff'],
-  ['/cold report weekly', 'digest on cron'],
+const FAQS = [
+  {
+    q: 'What is cold.md?',
+    a: 'Two things. An open spec (CC-BY-4.0) for describing your outbound as one markdown file with eight sections, and a Claude Code plugin (MIT) with eleven skills and a /cold command that read that file and run the outreach loop.',
+  },
+  {
+    q: 'Does it send anything without asking?',
+    a: 'No. Starting a campaign, revealing Lead Finder emails and sending a reply all wait for your yes. Edits to cold.md arrive as a patch you apply or reject; only after three approved edits in a row can it apply them on its own, and one rejection turns that off.',
+  },
+  {
+    q: 'How does it decide a test has a winner?',
+    a: 'cold-learn compares interested-reply rates between the control and the variant with a two-proportion z-test. A winner needs the minimum sample per variant (100 by default), the minimum days (7), a p-value under 0.05 and a confidence interval that excludes zero. Anything less is marked inconclusive and cold.md is left alone.',
+  },
+  {
+    q: 'Do I need FoxReach?',
+    a: 'Not for the spec, or for the skills that only read and write files (ICP, offer, research, drafting, status). Finding leads, sending, triage, learning from results and reports call the FoxReach CLI and API.',
+  },
+  {
+    q: 'What does it cost?',
+    a: 'The plugin and the spec are free and open source. Sending needs a FoxReach account; the free plan is enough to try the loop, and Lead Finder needs a paid plan with reveal credits.',
+  },
+  {
+    q: 'Can I use cold.md with another sending tool?',
+    a: 'The file is vendor-neutral, so any agent or tool can read it. The sending skills call the FoxReach CLI today; a version for another platform would be a new set of skills, and a pull request is welcome.',
+  },
+  {
+    q: 'How is it different from the FoxReach Claude Code plugin?',
+    a: 'The FoxReach plugin lets you ask Claude about anything in your workspace. cold.md is opinionated: one command per step of the loop, a policy file in your repo, and tests that propose edits to it. You can install both.',
+  },
+] as const
+
+const FILE_LINES = `---
+coldMdVersion: "0"
+owner: "Dana Reyes <dana@northwind.dev>"
+---
+
+# Northwind - cold.md
+
+## Identity
+I'm Dana, founder of Northwind. We turn product analytics
+into a weekly plan your growth team can act on.
+
+## Audience
+- B2B SaaS, 20-200 employees, Series A or B
+- Title: Head of Growth, VP Product, Founder
+### Not for
+- Agencies, consultancies
+
+## Value
+Northwind tells your growth team what to ship next week,
+from the data you already collect.
+
+## Voice
+### Do
+- Short sentences. One idea each.
+- Close with one yes/no question.
+### Don't
+- Use em dashes.
+
+## Sequence
+### 1. Opener (Day 0)
+- Subject: a question about their stack, 6 words max
+- Body: 40-60 words, one observable fact
+
+## Banned
+- I hope this email finds you well
+- circle back`
+
+const DIFF = [
+  { k: ' ', t: '### 1. Opener (Day 0)' },
+  { k: '-', t: '- Subject: 5 words max, lowercase, a statement' },
+  { k: '+', t: '- Subject: a question about their stack, 6 words max' },
+  { k: ' ', t: '- Body: 40-60 words, one observable fact' },
 ] as const
 
 export default function Home() {
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQS.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+  }
+
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen overflow-x-hidden">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+
       {/* Nav */}
-      <nav className="mx-auto max-w-6xl px-6 py-6 flex items-center justify-between">
-        <Link href="/" className="font-mono text-sm font-medium tracking-tight">cold.md</Link>
-        <div className="flex items-center gap-6 text-sm text-muted">
-          <Link href="#loop" className="hover:text-ink transition-colors">the loop</Link>
-          <Link href="#skills" className="hover:text-ink transition-colors">skills</Link>
-          <Link href="#foxreach" className="hover:text-ink transition-colors hidden sm:inline">foxreach</Link>
-          <Link href="#install" className="hover:text-ink transition-colors">install</Link>
-          <Link href="#spec" className="hover:text-ink transition-colors">spec</Link>
-          <a href={REPO_URL} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">github</a>
-        </div>
-      </nav>
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70">
+        <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-2" aria-label="cold.md home">
+            <Mark />
+            <span className="font-mono text-[15px] font-medium tracking-tight">cold.md</span>
+          </Link>
+          <div className="hidden items-center gap-7 text-sm text-ink-2 md:flex">
+            <a href="#how" className="hover:text-ink">How it works</a>
+            <a href="#skills" className="hover:text-ink">Skills</a>
+            <a href="#foxreach" className="hover:text-ink">FoxReach</a>
+            <a href="#spec" className="hover:text-ink">Spec</a>
+            <a href="#faq" className="hover:text-ink">FAQ</a>
+          </div>
+          <div className="flex items-center gap-2">
+            <a href={REPO_URL} target="_blank" rel="noreferrer" className="hidden items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm text-ink-2 hover:border-ink/20 hover:text-ink sm:inline-flex">
+              <GitHubGlyph /> GitHub
+            </a>
+            <a href="#install" className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-2">
+              Install
+            </a>
+          </div>
+        </nav>
+      </header>
 
       {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 pt-12 sm:pt-20 pb-16">
-        <div className="flex items-center gap-2 text-xs font-mono text-fox mb-8">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-fox animate-pulse" />
-          v0.3 - eleven skills, one /cold command. Lead Finder, verification and provider matching built in.
-        </div>
-
-        <h1 className="font-display text-hero text-ink max-w-5xl">
-          Cold outreach that<br />
-          <span className="italic text-fox">improves itself</span>.
-        </h1>
-
-        <p className="mt-8 max-w-2xl text-lg sm:text-xl leading-relaxed text-ink/75">
-          <strong className="text-ink">Karpathy-style autoresearch for cold email.</strong> An agent
-          picks the next variable to test, runs an A/B against your real campaign,
-          measures interested-reply rate, and proposes a diff to your{' '}
-          <code className="font-mono text-base px-1.5 py-0.5 bg-fox-tint text-fox rounded">cold.md</code>{' '}
-          policy file. Runs on{' '}
-          <a href="https://www.foxreach.io" className="underline decoration-fox/40 underline-offset-4 hover:decoration-fox">FoxReach</a>{' '}
-          infrastructure.{' '}
-          <a href="https://www.foxreach.io/blog/cold-md-autoresearch" className="underline decoration-fox/40 underline-offset-4 hover:decoration-fox">
-            Read the deep dive →
+      <section className="hero-glow relative">
+        <div className="mx-auto max-w-6xl px-4 pb-10 pt-14 text-center sm:px-6 sm:pt-20">
+          <a href="#foxreach" className="inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-white py-1 pl-1 pr-3 text-[13px] text-ink-2 shadow-card hover:border-ink/15">
+            <span className="shrink-0 rounded-full bg-fox px-2.5 py-0.5 text-xs font-semibold text-white">v0.3</span>
+            <span className="truncate">Lead Finder, verification and provider matching built in</span>
+            <span aria-hidden className="shrink-0">→</span>
           </a>
-        </p>
 
-        <div className="mt-10 flex flex-wrap items-center gap-3">
-          <Link href="#install" className="group inline-flex items-center gap-2 bg-ink text-paper px-5 py-3 rounded-lg text-sm font-medium hover:bg-ink/90 transition-colors">
-            Install the suite
-            <span className="transition-transform group-hover:translate-x-0.5">→</span>
-          </Link>
-          <Link href="#loop" className="inline-flex items-center gap-2 text-sm text-ink/70 hover:text-ink px-5 py-3 rounded-lg border border-line hover:border-ink/30 transition-colors">
-            See the loop
-          </Link>
-          <a href={REPO_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-ink/70 hover:text-ink px-5 py-3">
-            <GitHubGlyph />GitHub
-          </a>
-        </div>
+          <h1 className="mx-auto mt-7 max-w-4xl font-display text-hero font-semibold text-ink">
+            Cold outreach that
+            <br />
+            <span className="font-serif font-normal italic tracking-[-0.02em] text-fox">improves itself.</span>
+          </h1>
 
-        {/* Cover banner */}
-        <div className="mt-14 rounded-xl overflow-hidden border border-line shadow-[0_24px_48px_-24px_rgba(26,21,18,0.25)]">
-          <Image
-            src="/cover.webp"
-            alt="cold.md - One markdown file that runs your cold outreach"
-            width={1800}
-            height={600}
-            priority
-            sizes="(max-width: 1024px) 100vw, 1024px"
-            className="w-full h-auto"
-          />
-        </div>
-      </section>
-
-      {/* The loop */}
-      <section id="loop" className="border-y border-line bg-white/60">
-        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-          <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">the loop</div>
-          <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-4">
-            One loop. One command per step.
-          </h2>
-          <p className="text-ink/70 max-w-2xl mb-12 leading-relaxed">
-            Every step reads and writes files your team can review: cold.md, icp.md and the
-            experiment log in .cold/. The policy is yours and portable; FoxReach is the sending layer
-            the skills call today.
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-2 sm:text-xl">
+            One markdown file defines your outbound. Eleven Claude Code skills run it through FoxReach,
+            test it, and propose edits to it from what got replies.
           </p>
 
-          <div className="rounded-xl border border-line bg-ink text-paper overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-paper/10 bg-paper/5">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-paper/20" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-paper/20" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-paper/20" />
-                </div>
-                <span className="font-mono text-xs text-paper/50 ml-2">terminal</span>
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-4">
+            <a href="#install" className="group inline-flex items-center gap-3 rounded-full bg-fox py-2 pl-6 pr-2 text-[15px] font-semibold text-white shadow-cta hover:bg-fox-hover">
+              Install the plugin
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-fox transition-transform group-hover:translate-x-0.5">
+                <Arrow />
+              </span>
+            </a>
+            <a href={SPEC_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[15px] font-medium text-ink hover:text-fox">
+              Read the spec <Arrow />
+            </a>
+          </div>
+
+          <div className="mx-auto mt-6 flex max-w-md items-center justify-between gap-3 rounded-full border border-line bg-white/90 py-1.5 pl-4 pr-1.5 text-left shadow-card">
+            <code className="truncate font-mono text-[13px] text-ink-2"><span className="text-ink-4">$ </span>{INSTALL_CMD}</code>
+            <CopyButton text={INSTALL_CMD} />
+          </div>
+
+          {/* The session window */}
+          <div className="mx-auto mt-14 max-w-4xl overflow-hidden rounded-2xl border border-black/10 bg-night text-left shadow-window">
+            <div className="flex items-center gap-3 border-b border-white/10 bg-night-2 px-4 py-3">
+              <div className="flex gap-1.5" aria-hidden>
+                <span className="h-3 w-3 rounded-full bg-[#FF5F57]" />
+                <span className="h-3 w-3 rounded-full bg-[#FEBC2E]" />
+                <span className="h-3 w-3 rounded-full bg-[#28C840]" />
               </div>
-              <CopyButton text={CMD_STACK.map(([cmd]) => cmd).join('\n')} label="copy loop" />
+              <div className="mx-auto flex items-center gap-2 rounded-md bg-white/5 px-3 py-1 font-mono text-[11.5px] text-white/55">
+                ~/northwind-outbound <span className="text-white/30">·</span> claude
+              </div>
+              <span className="hidden rounded-full border border-white/15 px-2 py-0.5 text-[10.5px] font-medium uppercase tracking-wider text-white/45 sm:inline">example session</span>
             </div>
-            <pre className="p-5 sm:p-8 text-sm sm:text-base font-mono leading-loose overflow-x-auto no-scrollbar">
-              <code>
-                {CMD_STACK.map(([cmd, note], i) => (
-                  <div key={cmd} className="flex items-baseline gap-4">
-                    <span className="text-fox-light tabular-nums w-8 shrink-0">{String(i + 1).padStart(2, '0')}</span>
-                    <span className="text-paper/90 whitespace-nowrap">{cmd}</span>
-                    <span className="hidden md:inline text-paper/40 text-sm whitespace-nowrap"># {note}</span>
-                  </div>
-                ))}
-              </code>
-            </pre>
+            <div className="no-scrollbar overflow-x-auto px-5 py-5 sm:px-7 sm:py-6">
+              <TerminalDemo />
+            </div>
           </div>
         </div>
-      </section>
 
-      {/* Skills grid */}
-      <section id="skills" className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-        <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">the eleven skills</div>
-        <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-10">
-          Each skill owns one file.
-        </h2>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-line rounded-xl overflow-hidden border border-line">
-          {SKILLS.map((s) => (
-            <div key={s.name} className="bg-white p-6 sm:p-7 hover:bg-fox-tint/30 transition-colors relative">
-              <div className="flex items-baseline justify-between mb-3">
-                <div className="flex items-baseline gap-3">
-                  <span className="font-mono text-xs text-muted tabular-nums">{s.num}</span>
-                  <h3 className="font-mono text-base font-medium text-fox">{s.name}</h3>
-                </div>
-
-              </div>
-              <p className="text-sm text-ink/75 leading-relaxed mb-3">{s.desc}</p>
-              {s.needsKey && (
-                <div className="text-[11px] font-mono text-muted">requires FOXREACH_API_KEY</div>
-              )}
-            </div>
-          ))}
-          <a href={SPEC_URL} target="_blank" rel="noreferrer" className="group bg-fox-tint/40 p-6 sm:p-7 hover:bg-fox-tint transition-colors flex flex-col justify-between">
-            <p className="text-sm text-ink/75 leading-relaxed">
-              The spec is vendor-neutral. The sending skills call the foxreach CLI today; a version for another platform is a welcome PR.
-            </p>
-            <span className="mt-4 font-mono text-sm text-fox">read the spec <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span></span>
-          </a>
-        </div>
-
-        <p className="mt-8 text-sm text-muted">
-          Every skill reads <code className="font-mono text-xs px-1 py-0.5 bg-fox-tint text-fox rounded">cold.md</code>{' '}
-          or <code className="font-mono text-xs px-1 py-0.5 bg-fox-tint text-fox rounded">icp.md</code>{' '}
-          from your repo. Files travel with your team, not with your vendor.
-        </p>
-      </section>
-
-      {/* What runs on FoxReach */}
-      <section id="foxreach" className="border-t border-line bg-white/60">
-        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-          <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">the sending layer</div>
-          <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-4 max-w-3xl">
-            The skills decide. FoxReach does the sending.
-          </h2>
-          <p className="text-ink/70 max-w-2xl mb-12 leading-relaxed">
-            The FoxReach-backed skills call the public{' '}
-            <a href="https://www.foxreach.io/docs/sdks/cli" target="_blank" rel="noreferrer" className="underline decoration-fox/40 underline-offset-4 hover:decoration-fox">foxreach CLI</a>{' '}
-            and API. These are the pieces they use, and the command behind each one.
-          </p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-line rounded-xl overflow-hidden border border-line">
-            {FOXREACH_PIECES.map((p) => (
-              <div key={p.title} className="bg-white p-6 sm:p-7">
-                <h3 className="font-medium text-ink mb-2">{p.title}</h3>
-                <p className="text-sm text-ink/75 leading-relaxed mb-4">{p.desc}</p>
-                <code className="font-mono text-[11px] text-fox bg-fox-tint px-1.5 py-0.5 rounded break-all">{p.cmd}</code>
-              </div>
-            ))}
-          </div>
-          <p className="mt-8 text-sm text-muted max-w-2xl">
-            Variants are added in the FoxReach campaign editor because the public API reads them but does not create
-            them yet.{' '}
-            <a href="https://www.foxreach.io/docs/product/ab-testing" target="_blank" rel="noreferrer" className="text-ink hover:text-fox">How A/B testing works in FoxReach</a>.
-          </p>
-        </div>
-      </section>
-
-      {/* Install */}
-      <section id="install" className="border-y border-line bg-ink text-paper">
-        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-          <div className="text-xs font-mono text-fox-light uppercase tracking-wider mb-3">install</div>
-          <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-10 max-w-3xl">
-            One command.<br />Eleven skills. One loop.
-          </h2>
-
-          <div className="rounded-xl border border-paper/10 bg-paper/5 overflow-hidden max-w-3xl">
-            <div className="px-5 py-3 border-b border-paper/10 flex items-center justify-between">
-              <span className="font-mono text-xs text-paper/50">terminal</span>
-              <CopyButton text={INSTALL_CMD} label="copy command" />
-            </div>
-            <pre className="p-6 text-sm sm:text-base font-mono overflow-x-auto no-scrollbar">
-              <code>
-                <span className="text-paper/40">$ </span>
-                <span className="text-paper">curl -fsSL </span>
-                <span className="text-fox-light">https://cold.md/install</span>
-                <span className="text-paper"> | bash</span>
-              </code>
-            </pre>
-          </div>
-
-          <div className="mt-6 rounded-xl border border-paper/10 bg-paper/5 overflow-hidden max-w-3xl">
-            <div className="px-5 py-3 border-b border-paper/10 flex items-center justify-between">
-              <span className="font-mono text-xs text-paper/50">or inside Claude Code</span>
-              <CopyButton text={PLUGIN_CMDS} label="copy commands" />
-            </div>
-            <pre className="p-6 text-sm sm:text-base font-mono overflow-x-auto no-scrollbar text-paper">
-              <code>{PLUGIN_CMDS}</code>
-            </pre>
-          </div>
-
-          <div className="mt-10 grid sm:grid-cols-3 gap-8 max-w-4xl">
+        {/* Fact cells, as on the lifetime page */}
+        <div className="mx-auto max-w-3xl px-4 pb-16 sm:px-6">
+          <dl className="grid grid-cols-3 overflow-hidden rounded-2xl border border-line bg-white text-left shadow-card">
             {[
-              ['01', 'Installs the plugin', 'Adds the foxreach/cold-md marketplace and installs all eleven skills plus /cold. Re-run to update.'],
-              ['02', 'Sets up your repo', 'In Claude Code, /cold init asks nine questions and writes .cold/config.json. --scaffold starts cold.md and icp.md.'],
-              ['03', 'Runs the loop', '/cold icp https://your-site.com, then leads, draft, send. A week later, /cold learn.'],
-            ].map(([num, title, desc]) => (
-              <div key={num}>
-                <div className="font-mono text-xs text-fox-light mb-3 tabular-nums">{num}</div>
-                <div className="font-medium text-paper mb-1">{title}</div>
-                <div className="text-sm text-paper/70 leading-relaxed">{desc}</div>
+              ['Skills', '11'],
+              ['Command', '/cold'],
+              ['License', 'MIT + CC-BY'],
+            ].map(([k, v], i) => (
+              <div key={k} className={`px-4 py-4 sm:px-6 ${i > 0 ? 'border-l border-line' : ''}`}>
+                <dt className="text-xs text-ink-3">{k}</dt>
+                <dd className="mt-1 font-display text-xl font-semibold tracking-[-0.02em] sm:text-3xl">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      {/* Rails: everything below sits between thin vertical lines, as on foxreach.io */}
+      <div className="mx-auto max-w-6xl border-x border-line">
+        {/* How it works */}
+        <section id="how" className="border-t border-line">
+          <SectionHead eyebrow="How it works" title="One file. One loop." lede="cold.md is the brief every skill reads. The loop around it is what makes it get better instead of going stale." />
+          <div className="grid grid-cols-1 border-t border-line md:grid-cols-3">
+            {STEPS.map((s, i) => (
+              <div key={s.n} className={`px-6 py-8 sm:px-8 ${i > 0 ? 'border-t border-line md:border-l md:border-t-0' : ''}`}>
+                <div className="font-mono text-xs font-medium text-fox">{s.n}</div>
+                <h3 className="mt-3 text-lg font-semibold tracking-[-0.01em]">{s.title}</h3>
+                <p className="mt-2 text-[15px] leading-relaxed text-ink-3">{s.body}</p>
               </div>
             ))}
           </div>
+        </section>
 
-          <div className="mt-10 text-sm text-paper/60 max-w-2xl">
-            The FoxReach-backed skills (leads, send, learn, triage, report) need{' '}
-            <code className="font-mono text-xs bg-paper/10 px-1.5 py-0.5 rounded">pip install foxreach-cli</code> and{' '}
-            <code className="font-mono text-xs bg-paper/10 px-1.5 py-0.5 rounded">FOXREACH_API_KEY=otr_...</code>{' '}
-            from Settings, Integrations, API Keys.{' '}
-            <a href="https://www.foxreach.io/signup" target="_blank" rel="noreferrer" className="text-fox-light hover:text-paper">Create a FoxReach account →</a>
+        {/* The file */}
+        <section id="spec" className="border-t border-line">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
+            <div className="px-6 py-14 sm:px-10 sm:py-20">
+              <Eyebrow>The cold.md file</Eyebrow>
+              <h2 className="mt-4 font-display text-h2 font-semibold">The brief every skill reads.</h2>
+              <p className="mt-5 max-w-md text-[17px] leading-relaxed text-ink-2">
+                Eight sections, in order, in plain markdown. Commit it next to your code and it travels with your team, not with your vendor.
+              </p>
+              <ul className="mt-8 space-y-4 text-[15px] text-ink-2">
+                {[
+                  ['Banned', 'is a hard filter. A banned phrase is never written.'],
+                  ['Voice', 'rules are followed word for word, not as inspiration.'],
+                  ['Proof', 'is the only source of facts. No invented numbers.'],
+                  ['Audience', 'disqualifiers are enforced before anything sends.'],
+                ].map(([k, v]) => (
+                  <li key={k} className="flex gap-3">
+                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-fox" />
+                    <span><code className="rounded bg-fox-tint px-1.5 py-0.5 font-mono text-[13px] text-fox-deep">## {k}</code> {v}</span>
+                  </li>
+                ))}
+              </ul>
+              <a href={SPEC_URL} target="_blank" rel="noreferrer" className="mt-9 inline-flex items-center gap-2 text-[15px] font-medium hover:text-fox">
+                Read the v0 spec <Arrow />
+              </a>
+            </div>
+            <div className="dots min-w-0 border-t border-line p-4 sm:p-8 lg:border-l lg:border-t-0">
+              <div className="overflow-hidden rounded-xl border border-line bg-white shadow-lift">
+                <div className="flex items-center gap-1 border-b border-line bg-panel px-3 pt-2 text-[12.5px]">
+                  <span className="rounded-t-md border border-b-0 border-line bg-white px-3 py-1.5 font-mono text-ink">cold.md</span>
+                  <span className="px-3 py-1.5 font-mono text-ink-4">icp.md</span>
+                  <span className="ml-auto pb-1.5 pr-1 text-[11px] uppercase tracking-wider text-ink-4">example</span>
+                </div>
+                <div className="relative"><pre className="no-scrollbar max-h-[560px] overflow-auto p-5 pb-10 font-mono text-[12.5px] leading-[1.7]">
+                  <code>
+                    {FILE_LINES.split('\n').map((line, i) => (
+                      <div key={i} className={line.startsWith('## ') ? 'font-medium text-fox' : line.startsWith('### ') || line.startsWith('# ') ? 'font-medium text-ink' : line === '---' || /^\w+:/.test(line) ? 'text-ink-4' : 'text-ink-2'}>
+                        {line || ' '}
+                      </div>
+                    ))}
+                  </code>
+                </pre><div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-white/0" /></div>
+              </div>
+            </div>
           </div>
+        </section>
 
-          <div className="mt-6 text-xs text-paper/40">
-            No plugin, just skills in ~/.claude? <code className="font-mono bg-paper/10 px-1.5 py-0.5 rounded">curl -fsSL https://cold.md/install | bash -s -- --skills-only</code>
+        {/* Tests that edit the file */}
+        <section className="border-t border-line">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
+            <div className="dots order-2 flex min-w-0 flex-col justify-center border-t border-line p-4 sm:p-8 lg:order-1 lg:border-r lg:border-t-0">
+              <div className="space-y-4">
+                <div className="overflow-hidden rounded-xl border border-line bg-white shadow-lift">
+                  <div className="flex items-center justify-between border-b border-line px-4 py-2.5 text-[12.5px]">
+                    <span className="font-medium">tier-1 / subject line</span>
+                    <span className="rounded-full bg-[#E8F7EE] px-2 py-0.5 text-[11px] font-medium text-good">winner: B</span>
+                  </div>
+                  <table className="w-full text-left text-[13px]">
+                    <thead className="text-[11px] uppercase tracking-wider text-ink-4">
+                      <tr><th className="px-4 py-2 font-medium">Arm</th><th className="px-4 py-2 font-medium">Sent</th><th className="px-4 py-2 font-medium">Interested</th><th className="px-4 py-2 text-right font-medium">Rate</th></tr>
+                    </thead>
+                    <tbody className="font-mono">
+                      <tr className="border-t border-line"><td className="px-4 py-2.5">A statement</td><td className="px-4 py-2.5">412</td><td className="px-4 py-2.5">9</td><td className="px-4 py-2.5 text-right">2.2%</td></tr>
+                      <tr className="border-t border-line bg-fox-tint/60"><td className="px-4 py-2.5 font-medium text-fox-deep">B question</td><td className="px-4 py-2.5">405</td><td className="px-4 py-2.5">21</td><td className="px-4 py-2.5 text-right font-medium text-fox-deep">5.2%</td></tr>
+                    </tbody>
+                  </table>
+                  <div className="border-t border-line px-4 py-2.5 font-mono text-[12px] text-ink-3">+3.0pp · 95% CI [0.4, 5.6] · p = 0.02 · n = 817</div>
+                </div>
+                <div className="ml-auto overflow-hidden rounded-xl border border-line bg-white shadow-lift sm:w-[92%]">
+                  <div className="flex items-center justify-between border-b border-line px-4 py-2.5 text-[12.5px]">
+                    <span className="font-mono">.cold/proposed-diff.patch</span>
+                    <span className="text-[11px] text-ink-4">awaiting your approval</span>
+                  </div>
+                  <pre className="no-scrollbar overflow-x-auto py-2 font-mono text-[12.5px] leading-[1.8]">
+                    <code>
+                      {DIFF.map((d, i) => (
+                        <div key={i} className={`px-4 ${d.k === '+' ? 'bg-[#E8F7EE] text-[#166534]' : d.k === '-' ? 'bg-[#FDECEC] text-[#991B1B]' : 'text-ink-3'}`}>
+                          <span className="mr-3 select-none opacity-60">{d.k}</span>{d.t}
+                        </div>
+                      ))}
+                    </code>
+                  </pre>
+                </div>
+              </div>
+              <p className="mt-4 text-center text-xs text-ink-4">Example numbers</p>
+            </div>
+            <div className="order-1 px-6 py-14 sm:px-10 sm:py-20 lg:order-2">
+              <Eyebrow>Autoresearch</Eyebrow>
+              <h2 className="mt-4 font-display text-h2 font-semibold">Tests that edit <span className="font-serif font-normal italic tracking-[-0.01em] text-fox">the file.</span></h2>
+              <p className="mt-5 max-w-md text-[17px] leading-relaxed text-ink-2">
+                cold-experiment picks one variable and writes the test down before anything sends. A week later cold-learn reads the replies per variant and runs the numbers.
+              </p>
+              <ol className="mt-8 space-y-5">
+                {[
+                  ['Winner', 'A proposed patch to cold.md, with the sample, lift, confidence interval and p-value next to it.'],
+                  ['Inconclusive', 'cold.md is left alone. The test is extended or closed, and the next variable is up.'],
+                  ['Trust', 'After three approved patches in a row it can apply them itself. One rejection turns that off.'],
+                ].map(([k, v], i) => (
+                  <li key={k} className="flex gap-4">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-fox/30 font-mono text-xs text-fox">{i + 1}</span>
+                    <div><div className="font-semibold">{k}</div><p className="mt-1 text-[15px] leading-relaxed text-ink-3">{v}</p></div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        {/* Skills */}
+        <section id="skills" className="border-t border-line">
+          <SectionHead eyebrow="The skills" title="Eleven skills. Each owns one step." lede="Every skill reads cold.md or icp.md and writes a file you can review. Call them through /cold or on their own." />
+          <div className="grid grid-cols-1 gap-px border-t border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+            {SKILLS.map((s) => (
+              <div key={s.name} className="bg-white px-6 py-7 sm:px-8">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fox">{s.stage}</div>
+                <h3 className="mt-2 font-mono text-[15px] font-medium">{s.name}</h3>
+                <p className="mt-2 text-[14.5px] leading-relaxed text-ink-3">{s.desc}</p>
+                {s.key && <div className="mt-4 inline-flex rounded-full bg-grey px-2.5 py-0.5 text-[11px] text-ink-3">Needs a FoxReach key</div>}
+              </div>
+            ))}
+            <a href={SPEC_URL} target="_blank" rel="noreferrer" className="group flex flex-col justify-between bg-fox-tint px-6 py-7 hover:bg-fox-light/50 sm:px-8">
+              <p className="text-[14.5px] leading-relaxed text-ink-2">The spec is vendor-neutral. The sending skills call the FoxReach CLI today; a version for another platform is a welcome PR.</p>
+              <span className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-fox">Read the spec <Arrow /></span>
+            </a>
+          </div>
+        </section>
+      </div>
+
+      {/* The sending layer, dark like the agents section on foxreach.io */}
+      <section id="foxreach" className="bg-night text-white">
+        <div className="dots-dark mx-auto max-w-6xl border-x border-night-line">
+          <div className="px-6 py-16 sm:px-10 sm:py-24">
+            <div className="flex items-center gap-2 text-[13px] text-white/60"><span className="h-2 w-2 rounded-[3px] bg-fox" /> The sending layer</div>
+            <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-end">
+              <h2 className="font-display text-h2 font-semibold">The skills decide.<br /><span className="font-serif font-normal italic tracking-[-0.01em] text-[#FF9A5C]">FoxReach sends.</span></h2>
+              <p className="max-w-md text-[17px] leading-relaxed text-white/65">
+                The sending skills call the public <a href="https://www.foxreach.io/docs/sdks/cli" target="_blank" rel="noreferrer" className="text-white underline decoration-white/30 underline-offset-4 hover:decoration-white">FoxReach CLI</a> and API. These are the pieces they use and the command behind each.
+              </p>
+            </div>
+            <div className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {PIECES.map((p) => (
+                <div key={p.title} className="rounded-xl border border-night-line bg-night-2/90 p-5">
+                  <h3 className="font-semibold">{p.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/60">{p.desc}</p>
+                  <code className="mt-4 inline-block break-all rounded-md bg-white/5 px-2 py-1 font-mono text-[11.5px] text-[#FF9A5C]">{p.cmd}</code>
+                </div>
+              ))}
+            </div>
+            <div className="mt-10 flex flex-wrap items-center gap-2 text-sm">
+              <span className="mr-1 text-white/55">Read more:</span>
+              {[
+                ['cold.md setup guide', 'https://www.foxreach.io/docs/integrations/cold-md'],
+                ['A/B testing in FoxReach', 'https://www.foxreach.io/docs/product/ab-testing'],
+                ['CLI', 'https://www.foxreach.io/docs/sdks/cli'],
+                ['API', 'https://www.foxreach.io/docs/introduction'],
+              ].map(([label, href]) => (
+                <a key={href} href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[13px] font-medium text-ink hover:bg-white/90">
+                  {label} <span aria-hidden>↗</span>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* The cold.md spec */}
-      <section id="spec" className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-        <div className="grid lg:grid-cols-2 gap-14 items-start">
-          <div>
-            <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">the cold.md file</div>
-            <h2 className="font-display text-4xl sm:text-5xl leading-tight mb-6">
-              The portable brief every skill reads.
+      <div className="mx-auto max-w-6xl border-x border-line">
+        {/* Comparison */}
+        <section className="border-b border-line">
+          <SectionHead eyebrow="Why a suite" title="Other cold email skills draft. That is one step." lede="Drafting is where the work starts. The loop is what turns sends into a better policy." />
+          <div className="overflow-x-auto border-t border-line">
+            <table className="w-full min-w-[520px] text-left text-[15px]">
+              <thead>
+                <tr className="text-xs text-ink-3">
+                  <th className="px-6 py-3 font-medium sm:px-8">What you get</th>
+                  <th className="px-4 py-3 text-center font-medium">A cold email skill</th>
+                  <th className="bg-fox-tint px-4 py-3 text-center font-semibold text-fox-deep">cold.md</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARE.map(([label, a, b]) => (
+                  <tr key={label} className="border-t border-line">
+                    <td className="px-6 py-3.5 sm:px-8">{label}</td>
+                    <td className="px-4 py-3.5 text-center">{a ? <Tick /> : <Dash />}</td>
+                    <td className="bg-fox-tint px-4 py-3.5 text-center">{b ? <Tick fox /> : <Dash />}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Install */}
+        <section id="install">
+          <SectionHead eyebrow="Install" title="Live in three steps." lede="Works in Claude Code on macOS, Linux and Windows. Re-run the installer any time to update." />
+          <div className="grid grid-cols-1 border-t border-line md:grid-cols-3">
+            {[
+              { n: '01', title: 'Install the plugin', note: 'In a terminal, or inside Claude Code:', blocks: [INSTALL_CMD, PLUGIN_CMDS] },
+              { n: '02', title: 'Connect FoxReach', note: 'Create a key under Settings > Integrations > API Keys.', blocks: [FOXREACH_CMDS] },
+              { n: '03', title: 'Set up your repo', note: 'Nine questions, then .cold/config.json is written.', blocks: ['/cold init'] },
+            ].map((s, i) => (
+              <div key={s.n} className={`flex min-w-0 flex-col px-6 py-8 sm:px-8 ${i > 0 ? 'border-t border-line md:border-l md:border-t-0' : ''}`}>
+                <div className="font-mono text-xs font-medium text-fox">{s.n}</div>
+                <h3 className="mt-3 text-lg font-semibold">{s.title}</h3>
+                <p className="mt-1.5 text-sm text-ink-3">{s.note}</p>
+                <div className="mt-5 space-y-2.5">
+                  {s.blocks.map((b) => (
+                    <div key={b} className="overflow-hidden rounded-xl bg-night">
+                      <div className="flex items-center justify-between border-b border-white/10 px-3.5 py-2">
+                        <span className="font-mono text-[11px] text-white/45">{b.startsWith('/') ? 'claude code' : 'terminal'}</span>
+                        <CopyButton text={b} variant="dark" />
+                      </div>
+                      <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] px-3.5 py-3 font-mono text-[12.5px] leading-relaxed text-white/85"><code>{b}</code></pre>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="border-t border-line px-6 py-4 text-sm text-ink-3 sm:px-8">
+            No plugin, just skills in ~/.claude? <code className="break-all rounded bg-grey px-1.5 py-0.5 font-mono text-[12.5px]">{INSTALL_CMD} -s -- --skills-only</code>
+          </p>
+        </section>
+
+        {/* FAQ */}
+        <section id="faq" className="border-t border-line">
+          <div className="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr]">
+            <div className="px-6 py-14 sm:px-10 sm:py-20">
+              <Eyebrow>FAQ</Eyebrow>
+              <h2 className="mt-4 font-display text-h2 font-semibold">Questions, answered.</h2>
+              <p className="mt-4 max-w-xs text-[15px] leading-relaxed text-ink-3">
+                Anything else: open an issue on <a href={REPO_URL} target="_blank" rel="noreferrer" className="text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink">GitHub</a>.
+              </p>
+            </div>
+            <div className="border-t border-line lg:border-l lg:border-t-0">
+              {FAQS.map((f, i) => (
+                <details key={f.q} className={`group ${i > 0 ? 'border-t border-line' : ''}`} open={i === 0}>
+                  <summary className="flex cursor-pointer items-center justify-between gap-6 px-6 py-5 text-[16px] font-semibold hover:bg-panel sm:px-8">
+                    {f.q}
+                    <span className="faq-plus text-xl font-normal text-ink-3 transition-transform" aria-hidden>+</span>
+                  </summary>
+                  <p className="px-6 pb-6 text-[15px] leading-relaxed text-ink-2 sm:px-8">{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Closer */}
+        <section className="border-t border-line px-4 py-10 sm:px-8 sm:py-14">
+          <div className="fox-gradient relative overflow-hidden rounded-3xl px-6 py-16 text-center text-white sm:px-12 sm:py-20">
+            <h2 className="font-display text-h2 font-semibold">
+              Your next campaign is
+              <br />
+              <span className="font-serif font-normal italic tracking-[-0.01em]">one file away.</span>
             </h2>
-            <p className="text-ink/75 leading-relaxed mb-5">
-              One markdown file in your repo. Eight sections. Any conforming agent reads it
-              before generating a single email.
-            </p>
-            <ul className="space-y-3 text-sm text-ink/75">
-              <li className="flex gap-3"><span className="font-mono text-fox">→</span>Banned phrases are a <strong>hard filter</strong>, not a guideline.</li>
-              <li className="flex gap-3"><span className="font-mono text-fox">→</span>Voice rules are <strong>enforced verbatim</strong> - not "inspired by."</li>
-              <li className="flex gap-3"><span className="font-mono text-fox">→</span>Only facts from <code className="font-mono text-xs px-1 py-0.5 bg-fox-tint text-fox rounded">## Proof</code> can be cited. No fabricated numbers.</li>
-              <li className="flex gap-3"><span className="font-mono text-fox">→</span>Audience disqualifiers are respected - won't contact leads who fail your ICP.</li>
-            </ul>
-            <div className="mt-8 flex gap-3">
-              <a href={SPEC_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-medium text-ink hover:text-fox">
-                Read the v0 spec →
+            <p className="mx-auto mt-5 max-w-lg text-[17px] text-white/85">Install the plugin, run /cold init, and write cold.md once.</p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
+              <a href="#install" className="group inline-flex items-center gap-3 rounded-full bg-white py-2 pl-6 pr-2 text-[15px] font-semibold text-ink hover:bg-white/95">
+                Install cold.md
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-fox text-white transition-transform group-hover:translate-x-0.5"><Arrow /></span>
+              </a>
+              <a href={REPO_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[15px] font-medium text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
+                Star it on GitHub
               </a>
             </div>
           </div>
-
-          <div className="rounded-xl border border-line bg-white overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-line bg-paper/60">
-              <div className="flex gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-line" />
-                <span className="w-2.5 h-2.5 rounded-full bg-line" />
-                <span className="w-2.5 h-2.5 rounded-full bg-line" />
-              </div>
-              <span className="font-mono text-xs text-muted ml-2">./cold.md</span>
-            </div>
-            <pre className="p-5 sm:p-7 text-sm font-mono leading-relaxed overflow-x-auto no-scrollbar">
-              <code className="text-ink">
-                {SPEC_SNIPPET.split('\n').map((line, i) => (
-                  <div key={i} className={line.startsWith('#') ? 'text-fox' : ''}>
-                    {line || '\u00A0'}
-                  </div>
-                ))}
-              </code>
-            </pre>
-          </div>
-        </div>
-      </section>
-
-      {/* Why this, not another skill */}
-      <section className="border-y border-line bg-white/60">
-        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-          <div className="text-xs font-mono text-muted uppercase tracking-wider mb-3">why a suite, not a skill</div>
-          <h2 className="font-display text-3xl sm:text-4xl leading-tight mb-10 max-w-3xl">
-            Other Claude Code cold-email skills draft. Drafting is one step of the loop.
-          </h2>
-          <div className="grid sm:grid-cols-2 gap-10">
-            <div>
-              <div className="font-mono text-xs text-muted uppercase tracking-wider mb-3">single skill</div>
-              <ul className="space-y-2 text-sm text-ink/70">
-                <li>- Writes copy when asked</li>
-                <li>- No ICP, no lead sourcing, no sending</li>
-                <li>- No reply triage, no reporting</li>
-                <li>- Never learns from what got replies</li>
-                <li>- Every project starts from scratch</li>
-                <li>- Config lives in the prompt, not the repo</li>
-              </ul>
-            </div>
-            <div>
-              <div className="font-mono text-xs text-fox uppercase tracking-wider mb-3">cold.md suite</div>
-              <ul className="space-y-2 text-sm text-ink/90">
-                <li>→ Every step of the loop has its own skill</li>
-                <li>→ ICP, voice, proof, sequences committed to your repo</li>
-                <li>→ A/B results rewrite cold.md, behind your approval</li>
-                <li>→ <code className="font-mono text-xs px-1 bg-fox-tint text-fox rounded">/cold report</code> runs on a schedule, no dashboard to open</li>
-                <li>→ Swap sending infra without rewriting anything</li>
-                <li>→ Works for you, your team, your agents</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-line">
-        <div className="mx-auto max-w-6xl px-6 py-12 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+        <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 sm:grid-cols-[1.4fr_1fr_1fr_1fr] sm:px-8">
           <div>
-            <div className="font-mono text-sm font-medium mb-1">cold.md</div>
-            <p className="text-sm text-muted max-w-md">
-              Open spec, MIT + CC-BY-4.0. Built and maintained by the team at{' '}
-              <a href="https://www.foxreach.io" target="_blank" rel="noreferrer" className="text-ink hover:text-fox">FoxReach</a>.
-            </p>
+            <div className="flex items-center gap-2"><Mark /><span className="font-mono text-[15px] font-medium">cold.md</span></div>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-ink-3">Open spec (CC-BY-4.0) and Claude Code plugin (MIT).</p>
+            <a href="https://www.foxreach.io" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm text-ink-2 hover:text-ink">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/fox-mark.svg" alt="" width={18} height={18} /> Built by FoxReach
+            </a>
           </div>
-          <div className="flex items-center gap-5 text-sm text-muted">
-            <a href={REPO_URL} target="_blank" rel="noreferrer" className="hover:text-ink">GitHub</a>
-            <a href={SPEC_URL} target="_blank" rel="noreferrer" className="hover:text-ink">Spec v0</a>
-            <a href="https://www.foxreach.io" target="_blank" rel="noreferrer" className="hover:text-ink">FoxReach</a>
-          </div>
+          <FooterCol title="cold.md" links={[['How it works', '#how'], ['Skills', '#skills'], ['Install', '#install'], ['FAQ', '#faq']]} />
+          <FooterCol title="Source" links={[['GitHub', REPO_URL], ['Spec v0', SPEC_URL], ['Examples', `${REPO_URL}/tree/main/examples`], ['llms.txt', '/llms.txt']]} />
+          <FooterCol title="FoxReach" links={[['Setup guide', 'https://www.foxreach.io/docs/integrations/cold-md'], ['Integration page', 'https://www.foxreach.io/integrations/ai-clients/cold-md'], ['CLI docs', 'https://www.foxreach.io/docs/sdks/cli'], ['Create an account', 'https://www.foxreach.io/signup']]} />
         </div>
       </footer>
     </main>
   )
 }
 
+function SectionHead({ eyebrow, title, lede }: { eyebrow: string; title: string; lede: string }) {
+  return (
+    <div className="grid grid-cols-1 gap-5 px-6 py-14 sm:px-10 sm:py-20 lg:grid-cols-[1.25fr_1fr] lg:items-end">
+      <div>
+        <Eyebrow>{eyebrow}</Eyebrow>
+        <h2 className="mt-4 max-w-2xl font-display text-h2 font-semibold">{title}</h2>
+      </div>
+      <p className="max-w-md text-[17px] leading-relaxed text-ink-3">{lede}</p>
+    </div>
+  )
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 text-[13px] text-ink-3">
+      <span className="flex h-4 w-4 items-center justify-center rounded-[5px] bg-fox-light"><span className="h-1.5 w-1.5 rounded-[2px] bg-fox" /></span>
+      {children}
+    </div>
+  )
+}
+
+function FooterCol({ title, links }: { title: string; links: [string, string][] }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">{title}</div>
+      <ul className="mt-4 space-y-2.5 text-sm">
+        {links.map(([label, href]) => (
+          <li key={label}>
+            <a href={href} {...(href.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})} className="text-ink-2 hover:text-ink">{label}</a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function Mark() {
+  // cold.md mark: a black tile with a markdown heading hash and the fox-orange dot.
+  return (
+    <svg viewBox="0 0 32 32" className="h-7 w-7" aria-hidden>
+      <rect width="32" height="32" rx="8" fill="#000" />
+      <path d="M11 9.5 9.5 22.5M17 9.5l-1.5 13M7.5 13.5h12M7 18.5h12" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="24" cy="21" r="2.6" fill="#EA580C" />
+    </svg>
+  )
+}
+
+function Arrow() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden>
+      <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function Tick({ fox }: { fox?: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={`mx-auto h-4 w-4 ${fox ? 'text-fox' : 'text-ink-2'}`} role="img" aria-label="yes">
+      <path d="M3 8.5l3.2 3.2L13 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function Dash() {
+  return <span className="text-ink-4" role="img" aria-label="no">-</span>
+}
+
 function GitHubGlyph() {
   return (
-    <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4" aria-hidden>
-      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+    <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4" aria-hidden>
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
     </svg>
   )
 }
