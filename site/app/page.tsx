@@ -336,8 +336,12 @@ export default function Home() {
       </div>
 
       {/* The sending layer, dark like the agents section on foxreach.io */}
-      <section id="foxreach" className="bg-night text-white">
-        <div className="dots-dark mx-auto max-w-6xl border-x border-night-line">
+      {/* Hatched margins outside a solid column with corner dots, as on foxreach.io */}
+      <section id="foxreach" className="overflow-x-clip bg-night text-white [background-image:repeating-linear-gradient(-60deg,rgba(255,255,255,0.07)_0_1px,transparent_1px_8px)]">
+        <div className="relative mx-auto max-w-6xl border-x border-white/10 bg-night">
+          {['-left-[4px] -top-[4px]', '-right-[4px] -top-[4px]', '-left-[4px] -bottom-[4px]', '-right-[4px] -bottom-[4px]'].map((pos) => (
+            <span key={pos} aria-hidden className={`pointer-events-none absolute z-10 hidden h-[7px] w-[7px] rounded-full bg-[#6B6B6B] min-[1200px]:block ${pos}`} />
+          ))}
           <div className="px-6 py-16 sm:px-10 sm:py-24">
             <div className="flex items-center gap-2 text-[13px] text-white/60"><span className="flex h-4 w-4 items-center justify-center rounded-[5px] bg-fox/25"><span className="h-1.5 w-1.5 rounded-[2px] bg-fox" /></span>The sending layer</div>
             <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-end">
