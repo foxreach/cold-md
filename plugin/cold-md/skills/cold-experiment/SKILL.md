@@ -111,6 +111,7 @@ extension_policy:
 # Filled by /cold send. Never fill these by hand or by guess.
 campaignId: null
 campaignIds: []              # two-campaign design: [control campaign, variant campaign]
+sequenceId: null             # variant design: the step that carries the variants
 variantIds: { control: null, variant: null }
 variantLabels: { control: A, variant: B }
 ---
@@ -123,7 +124,7 @@ Below the frontmatter, in prose:
 - **Hypothesis**, grounded in `icp.md` and any `.cold/research/` findings.
 - **Arms**: the pattern, the example copy, and why each might win.
 - **Held constant**: everything except the variable (body, CTA, send window, accounts, cadence, tone, as applicable).
-- **How the copy reaches FoxReach**: `/cold draft` refines the control and variant copy within the arm patterns. `/cold send` creates the step with the control copy through the API, then prints the variant copy for the user to paste into variant B in the app (the public API cannot create variants), reads back both variant IDs and writes them into this file.
+- **How the copy reaches FoxReach**: `/cold draft` refines the control and variant copy within the arm patterns. `/cold send` creates the step with the control copy, adds variant A (control copy) and variant B (variant copy) to it with `foxreach sequences variants add`, reads both variant IDs back and writes them into this file.
 
 Both arms must respect `cold.md ## Voice` and `## Banned`.
 
@@ -156,7 +157,7 @@ Next: /cold draft, then /cold send
 - One variable per experiment, two arms.
 - The ladder is strict; skipping a tier needs a manual `currentTier` override.
 - Tier 5 needs `--allow-tier-5`.
-- Variant IDs come only from `foxreach sequences list` output, written by `/cold send`.
+- Variant IDs come only from `foxreach sequences variants add` / `variants list` output, written by `/cold send`.
 
 ## Output
 

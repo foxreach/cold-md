@@ -1,6 +1,6 @@
 ---
 name: cold-send
-description: Turn the imported leads and drafted copy into a live FoxReach campaign. Runs pre-flight checks (banned phrases, audience, duplicates, variables and spin syntax, verification coverage, account health and bounce guard), creates the campaign and its steps, adds accounts and leads, decides on provider matching, walks the user through adding the A/B variant in the app, then starts the campaign after approval. Use after /cold leads and /cold draft, when the user says "ship it", "send", "launch" or runs /cold send.
+description: Turn the imported leads and drafted copy into a live FoxReach campaign. Runs pre-flight checks (banned phrases, audience, duplicates, variables and spin syntax, verification coverage, account health and bounce guard), creates the campaign and its steps, adds accounts and leads, decides on provider matching, creates the A/B variants for an active experiment, then starts the campaign after approval. Use after /cold leads and /cold draft, when the user says "ship it", "send", "launch" or runs /cold send.
 ---
 
 # cold-send
@@ -112,28 +112,31 @@ Returns `enabled`, `senders` (`google, microsoft, other`), `leads` (per provider
   ```
   Otherwise leave it off and say why (for example "all senders are Google, nothing to match"). A low `resolvedPct` means lookups are still running; that is fine.
 
-## A/B variant (only when an experiment is active)
+## A/B variants (only when an experiment is active)
 
-The public API reads variants but cannot create or edit them. Never claim a variant was created. The campaign is still a draft, which is required to add variants (an active campaign must be paused first).
+Needs `foxreach-cli` 0.6.0 or later (`foxreach --version`; upgrade with `pip install -U foxreach-cli`). The campaign is still a draft, which variants need: the API refuses to add, edit or delete variants while a campaign is active (pause it first).
 
-1. Print, then wait for the user:
-   ```
-   Add variant B in FoxReach (the API cannot create variants):
-   1. Open the campaign "<name>" in the app (https://www.foxreach.io), Sequences tab.
-   2. On step <N>, click "Add A/B Test". Variant A is the control, Variant B is a copy to edit.
-   3. Click the pencil (Edit step), open B, replace its subject and body with:
-        Subject: <variant subject>
-        Body:
-        <variant body>
-   4. Keep both weights at 1 (50/50), click "Save All Variants".
-   Reply "done" when saved. Guide: https://www.foxreach.io/docs/product/ab-testing
-   ```
-2. On "done":
+Once a step has variants, FoxReach sends one of them to each lead, picked by weight, and the step's own subject and body are no longer used. So create both arms: A with the control copy, B with the variant copy.
+
+1. Take the step ID `$SID` of step `<N>` from the `sequences create --json` output (`id`), or from `foxreach sequences list --campaign $CID --json` (the entry whose `step_number` is `<N>`).
+2. Create the variants, equal weights for a 50/50 split:
    ```bash
-   foxreach sequences list --campaign $CID --json
+   foxreach sequences variants add --campaign $CID --step $SID --label A \
+     --subject "<control subject>" --body "<control body>" --weight 1 --json
+   foxreach sequences variants add --campaign $CID --step $SID --label B \
+     --subject "<variant subject>" --body "<variant body>" --weight 1 --json
    ```
-   Step `<N>` must have `hasVariants: true` and two `variants` (`id, label, subject, body, weight`). Match the variant whose copy equals the control to `control`, the other to `variant`. Copy differs from what you printed, or `hasVariants` is false: show it and ask the user to fix it. Do not start until it matches, or the user chooses to send without the experiment (then leave `.active` untouched and note it in `.cold/decisions.md`).
-3. Write into `.cold/experiments/<id>/protocol.md` frontmatter: `campaignId`, `step`, `variantIds: { control: <id>, variant: <id> }`, `variantLabels: { control: A, variant: B }`.
+   Each prints the new variant (`id, sequence_id, label, subject, body, weight, send_as_html`). A label that already exists on the step is refused; list the variants and fix the existing one instead:
+   ```bash
+   foxreach sequences variants update <VARIANT_ID> --campaign $CID --step $SID \
+     --subject "<subject>" --body "<body>" --json
+   ```
+3. Check:
+   ```bash
+   foxreach sequences variants list --campaign $CID --step $SID --json
+   ```
+   Exactly two variants, A with the control copy and B with the variant copy, both weight 1. Anything else: show it, fix it with `variants update`, and check again. Do not start until it matches, or until the user chooses to send without the experiment. In that case remove the test with `foxreach sequences variants delete <A_ID> --campaign $CID --step $SID --yes` (deleting one of two variants deletes both, and the step goes back to its own subject and body), leave `.active` untouched and note it in `.cold/decisions.md`.
+4. Write into `.cold/experiments/<id>/protocol.md` frontmatter: `campaignId`, `step`, `sequenceId: $SID`, `variantIds: { control: <A id>, variant: <B id> }`, `variantLabels: { control: A, variant: B }`.
 
 Two-campaign experiments (protocol `design: two-campaign`, for cadence or provider matching): create two campaigns that differ only in the tested setting, split the leads randomly in half, give both the same accounts, and record both `campaignIds` in the protocol. For an `esp-matching` experiment the protocol sets provider matching per campaign; skip the `"auto"` rule.
 
@@ -186,7 +189,7 @@ Live: "<name>" (<CID>)
 ## Fallback (CLI, then curl, then docs)
 
 1. Find the path in `.cold/docs-cache/foxreach-openapi.json`.
-2. `curl https://api.foxreach.io/api/v1/<path> -H "X-API-Key: $FOXREACH_API_KEY"` (for example `POST /campaigns/{id}/sequences` with `subject, body, name, delayDays, delayHours, sendOnlyIfNoReply, sendAsHtml`).
+2. `curl https://api.foxreach.io/api/v1/<path> -H "X-API-Key: $FOXREACH_API_KEY"` (for example `POST /campaigns/{id}/sequences` with `subject, body, name, delayDays, delayHours, sendOnlyIfNoReply, sendAsHtml`, or `POST /campaigns/{id}/sequences/{sequence_id}/variants` with `label, subject, body, weight`).
 3. Docs: https://www.foxreach.io/docs/api-reference/campaigns/create-campaign and siblings.
 4. Still failing: print what was tried and stop. Never guess an endpoint.
 

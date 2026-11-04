@@ -65,6 +65,7 @@ Router for the cold.md suite. Every step of the outbound loop, one command.
 
 ### Step 1 - Prerequisites
 - `command -v foxreach`. Missing: `pip install foxreach-cli` (or `pipx install foxreach-cli`) and stop.
+- `foxreach --version` below 0.6.0: say A/B variants need 0.6.0 and suggest `pip install -U foxreach-cli`. Do not stop.
 - `FOXREACH_API_KEY` set, or `foxreach config show` lists a key. Missing: explain Settings > Integrations > API Keys, `export FOXREACH_API_KEY=otr_...` or `foxreach config set-key --key otr_...`, and stop.
 - Confirm: "Set up cold.md in `<cwd>`? (Y/n)"
 - `--upgrade`: read the existing `.cold/config.json`, keep every answer it has, ask only the questions for missing keys, write version 0.3. Never touch `trust.json`, `beliefs.md`, `decisions.md` or `experiments/`.

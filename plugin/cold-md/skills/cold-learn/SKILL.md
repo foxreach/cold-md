@@ -36,7 +36,7 @@ A patch still on disk means the last proposal is pending: no streak change.
 ## Step 1: Ready to read?
 
 - No `.active`: "No active experiment. Run /cold experiment." Stop.
-- Variant design with `variantIds.control` or `variantIds.variant` null: "/cold send did not record the variant IDs. Run `foxreach sequences list --campaign <id> --json` and add them to the protocol." Stop.
+- Variant design with `variantIds.control` or `variantIds.variant` null: "/cold send did not record the variant IDs. Run `foxreach sequences variants list --campaign <id> --step <sequenceId> --json` and add them to the protocol." Stop.
 - `now - sentAt` below `min_days_before_read`: "Needs <n> more days." Stop. Never pull stats early; peeking biases the read.
 
 ## Step 2: Pull stats
@@ -81,7 +81,7 @@ curl -sS "https://api.foxreach.io/api/v1/inbox/categorize-stats?campaignId=$CID&
 
 Per arm: `bounce_rate = bounce / sent`, `not_interested_rate = not_interested / sent`. Also read `foxreach accounts health <id> --json` for each ID in `last-send.json.accountIds` and compute `bounce7d.bounced / bounce7d.sent`.
 
-- Any bounce rate above `guards.bounceRateThreshold`: the experiment is invalid. When `guards.autoPauseOnGuardBreach` is true, run `foxreach campaigns pause "$CID"`. Variant weights cannot go below 1 and cannot be changed through the API, so tell the user to remove the breaching variant in the app ("Remove A/B Test" reverts the step to the control) or fix the accounts. Append the breach to `.cold/decisions.md`. Propose no cold.md change. Stop.
+- Any bounce rate above `guards.bounceRateThreshold`: the experiment is invalid. When `guards.autoPauseOnGuardBreach` is true, run `foxreach campaigns pause "$CID"`. Variant weights cannot go below 1, so a breaching variant cannot be weighted to zero. With the campaign paused, offer to end the test with `foxreach sequences variants delete <VARIANT_ID> --campaign "$CID" --step <sequenceId> --yes` (deleting one of two variants deletes both, and the step goes back to its own subject and body, the control), or to fix the accounts. Append the breach to `.cold/decisions.md`. Propose no cold.md change. Stop.
 - `not_interested_rate` above `guards.notInterestedRateThreshold`: warn and continue; the result is still informative.
 
 ## Step 5: Two-proportion z-test
@@ -144,16 +144,24 @@ Proposed: .cold/proposed-diff.patch
 Trust streak <s>/<autoCommitAfterApprovedStreak>.
 ```
 
-**Promote the winner in FoxReach.** Editing variants is a web-app action; print:
+**Promote the winner in FoxReach.** Variants can only change while the campaign is paused. Offer the two options and run the one the user picks (`<SEQ>` is `protocol.sequenceId`):
 
-```
-Promote <arm> in campaign "<name>" (guide: https://www.foxreach.io/docs/product/ab-testing)
-  Keep a small test running: pause, set the winner's weight to 9 and the other to 1, resume.
-  Or end the test: pause, copy the winner's subject and body, click "Remove A/B Test"
-  (this reverts the step to the original control), paste the winning copy into the step, save, resume.
+```bash
+foxreach campaigns pause "$CID"
+
+# Keep a small test running: winner weight 9, the other 1
+foxreach sequences variants update <WINNER_ID> --campaign "$CID" --step <SEQ> --weight 9
+foxreach sequences variants update <OTHER_ID> --campaign "$CID" --step <SEQ> --weight 1
+
+# Or end the test: delete the variants (deleting one of two deletes both, and the step
+# goes back to its own copy), then write the winning copy into the step
+foxreach sequences variants delete <OTHER_ID> --campaign "$CID" --step <SEQ> --yes
+foxreach sequences update --campaign "$CID" --sequence <SEQ> --subject "<winner subject>" --body "<winner body>"
+
+foxreach campaigns resume "$CID"
 ```
 
-Pausing, resuming and writing the winning copy back to the step (after the test is removed) can go through the API on request: `foxreach campaigns pause "$CID"`, `foxreach sequences update --campaign "$CID" --sequence <step id> --subject "..." --body "..."`, `foxreach campaigns resume "$CID"`. "Remove A/B Test" itself is not available in the public API. Two-campaign design: keep the winning setting for future campaigns; offer to pause the losing campaign.
+If the protocol has no `sequenceId` (older runs), take it from `foxreach sequences list --campaign "$CID" --json` (the entry whose `step_number` is `protocol.step`). Guide: https://www.foxreach.io/docs/product/ab-testing. Two-campaign design: keep the winning setting for future campaigns; offer to pause the losing campaign.
 
 ## Step 9: Close out
 

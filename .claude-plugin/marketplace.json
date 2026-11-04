@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "cold.md: the open spec and Claude Code plugin for cold outreach that improves itself.",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "plugins": [
     {
       "name": "cold-md",
       "source": "./plugin/cold-md",
       "description": "Eleven skills and one /cold command that run cold outreach end to end from a cold.md file in your repo. Sends through FoxReach.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "author": {
         "name": "FoxReach",
         "email": "dev@foxreach.io"

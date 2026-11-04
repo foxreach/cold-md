@@ -30,7 +30,7 @@ const PIECES = [
   { title: 'Email verification', cmd: 'foxreach verification verify-bulk', desc: 'Every CSV lead is checked before import. Bad addresses never reach a campaign; only definite good or bad verdicts use a credit.' },
   { title: 'Provider matching', cmd: 'foxreach campaigns esp-mix', desc: 'How your mailboxes and leads split across Google and Microsoft, so the first email can go out from the same provider.' },
   { title: 'Mailbox health', cmd: 'foxreach accounts health', desc: 'Health is the share of warmup mail that lands in the inbox. Mailboxes under your floor stay out of the campaign.' },
-  { title: 'A/B variants', cmd: 'foxreach sequences list', desc: 'cold-send writes the control and hands you the variant to paste into the step, then reads the variant IDs back.' },
+  { title: 'A/B variants', cmd: 'foxreach sequences variants add', desc: 'cold-send writes the control as the step, adds variants A and B to it, and records their IDs for cold-learn.' },
   { title: 'Reply categories', cmd: 'foxreach inbox categorize-stats', desc: 'Interested, not interested and out of office per variant, step and day. The z-test in cold-learn runs on these.' },
 ] as const
 
@@ -129,8 +129,8 @@ export default function Home() {
       <section className="hero-glow relative">
         <div className="mx-auto max-w-6xl px-4 pb-10 pt-14 text-center sm:px-6 sm:pt-20">
           <a href="#foxreach" className="inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-white py-1 pl-1 pr-3 text-[13px] text-ink-2 shadow-card hover:border-ink/15">
-            <span className="shrink-0 rounded-full bg-fox px-2.5 py-0.5 text-xs font-semibold text-white">v0.3</span>
-            <span className="truncate"><span className="sm:hidden">Lead Finder and verification built in</span><span className="hidden sm:inline">Lead Finder, verification and provider matching built in</span></span>
+            <span className="shrink-0 rounded-full bg-fox px-2.5 py-0.5 text-xs font-semibold text-white">v0.4</span>
+            <span className="truncate"><span className="sm:hidden">A/B variants set up for you</span><span className="hidden sm:inline">A/B variants, Lead Finder, verification and provider matching built in</span></span>
             <span aria-hidden className="shrink-0">→</span>
           </a>
 

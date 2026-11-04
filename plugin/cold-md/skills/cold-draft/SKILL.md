@@ -139,12 +139,12 @@ Output, keyed by `importId` from `.cold/last-import.json`:
 ```
 .cold/drafts/<importId>/
   arm_a_<descriptor>/step-<n>.md   # control: becomes the FoxReach step
-  arm_b_<descriptor>/step-<n>.md   # challenger: becomes variant B in the app
+  arm_b_<descriptor>/step-<n>.md   # challenger: becomes variant B
 ```
 
 Each `step-<n>.md` has frontmatter (`arm`, `step`, `delayDays`, `variable`) and then the subject and body, using variables as above. Arms differ **only** in the variable under test. For a personalization test, the personalized arm uses `{{hook|...}}` and the generic arm does not.
 
-FoxReach variants are created in the app ("Add A/B Test" on the step makes A and B), so the arm descriptor is for your files; `cold-send` maps each arm to its FoxReach variant ID and stores the mapping. Guide: https://www.foxreach.io/docs/product/ab-testing
+FoxReach variants are labelled A and B (`cold-send` creates both with `foxreach sequences variants add`), so the arm descriptor is for your files; `cold-send` maps each arm to its FoxReach variant ID and stores the mapping. Guide: https://www.foxreach.io/docs/product/ab-testing
 
 Per-lead previews (optional): render 3 sample leads per arm into `arm_*/preview/<leadKey>.md`, where `leadKey` is the CSV `id` or the first 12 hex characters of `sha256(lowercase(trim(email)))`. If a research bundle exists for the lead (`.cold/experiments/<id>/research/<leadKey>.md` or `.cold/research/lead-personalization/<leadKey>.md`), use its `## Hook` line for `{{hook}}`.
 

@@ -72,10 +72,10 @@ Source: [`plugin/cold-md/skills/`](plugin/cold-md/skills/).
 | Email verification | `foxreach verification verify-bulk` | cold-leads, cold-send |
 | Provider matching (first email from the recipient's provider) | `foxreach campaigns esp-mix`, `campaigns create --esp-matching` | cold-send, cold-report |
 | Mailbox health (warmup inbox placement) | `foxreach accounts health`, `warmup stats` | cold-send, cold-report |
-| Sequences and A/B variants | `foxreach sequences create / list` | cold-send, cold-learn |
+| Sequences and A/B variants | `foxreach sequences create`, `sequences variants add / list / update / delete` | cold-send, cold-learn |
 | Reply categories per variant | `foxreach inbox categorize-stats --group-by variant` | cold-learn, cold-report |
 
-One manual step: the public API reads A/B variants but cannot create them yet. `cold-send` writes your control as the sequence step, prints the variant copy, and you add it in the campaign editor ([how](https://www.foxreach.io/docs/product/ab-testing)). The skill then reads the variant IDs back and the test runs from there.
+`cold-send` writes your control as the sequence step and adds variants A and B to it with `foxreach sequences variants add` (foxreach-cli 0.6.0 or later), then records their IDs so `cold-learn` can read the test. Ending or reweighting a test goes through the CLI too ([how A/B tests work in FoxReach](https://www.foxreach.io/docs/product/ab-testing)).
 
 ## The files
 

@@ -39,8 +39,9 @@ installer. Also build the site (`cd site && npx next build`) when it changed.
   the public API (`https://api.foxreach.io/openapi-public.json`, header `X-API-Key`, keys `otr_...`).
   On 2026-11-03 several skills were calling commands that never shipped; check before writing.
 - Docs live at https://www.foxreach.io/docs/... (docs.foxreach.io is gone).
-- The public API reads A/B variants but cannot create them. Skills hand the user the variant copy
-  and the app steps; never claim a variant was created.
+- A/B variants go through the API since foxreach-cli 0.6.0 (2026-11-04): `foxreach sequences variants
+  add / list / update / delete / stats`, and only while the campaign is not active. Never claim a
+  variant exists without reading it back with `variants list`.
 
 ## Memory system
 - `memory/architecture/` - how pieces fit together
